@@ -16,7 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from src.config import get_settings
-from src.database import Document, Chunk, get_db
+from src.api.deps import get_current_user, require_admin
+from src.database import Document, Chunk, User, get_db
 from src.schemas.document import DocumentListResponse, DocumentResponse
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 async def upload_document(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
 ):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files allowed")
@@ -95,6 +97,7 @@ async def list_documents(
     status_filter: Optional[str] = Query(None, alias="status"),
     q: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
 ):
     query = select(Document).options(defer(Document.metadata_))
     count_query = select(func.count(Document.id))
@@ -123,7 +126,11 @@ async def list_documents(
 
 
 @router.get("/{doc_id}", response_model=DocumentResponse)
-async def get_document(doc_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_document(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
+):
     result = await db.execute(
         select(Document).where(Document.id == doc_id).options(defer(Document.metadata_))
     )
@@ -134,7 +141,11 @@ async def get_document(doc_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{doc_id}/pdf")
-async def get_document_pdf(doc_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_document_pdf(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
+):
     result = await db.execute(select(Document).where(Document.id == doc_id))
     doc = result.scalar_one_or_none()
     if not doc:
@@ -153,7 +164,11 @@ async def get_document_pdf(doc_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{doc_id}/chunks")
-async def get_document_chunks(doc_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_document_chunks(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
+):
     result = await db.execute(select(Document).where(Document.id == doc_id))
     doc = result.scalar_one_or_none()
     if not doc:
@@ -197,7 +212,11 @@ async def get_document_chunks(doc_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/{doc_id}", status_code=204)
-async def delete_document(doc_id: UUID, db: AsyncSession = Depends(get_db)):
+async def delete_document(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User | None = Depends(require_admin),
+):
     result = await db.execute(select(Document).where(Document.id == doc_id))
     doc = result.scalar_one_or_none()
     if not doc:

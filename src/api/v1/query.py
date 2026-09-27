@@ -10,7 +10,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import get_db
+from src.api.deps import get_current_user
+from src.database import User, get_db
 from src.schemas.query import (
     ChunkResult,
     QueryRequest,
@@ -64,7 +65,11 @@ def _results_to_sources(results) -> list[ChunkResult]:
 
 
 @router.post("/query", response_model=QueryResponse)
-async def query_rag(req: QueryRequest, db: AsyncSession = Depends(get_db)):
+async def query_rag(
+    req: QueryRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
+):
     t0 = time.time()
     doc_filter = str(req.doc_filter) if req.doc_filter else None
     results = await hybrid_search(req.query, db, top_k=req.max_chunks, doc_filter=doc_filter)
@@ -87,7 +92,11 @@ async def query_rag(req: QueryRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/query/stream")
-async def query_rag_stream(req: QueryRequest, db: AsyncSession = Depends(get_db)):
+async def query_rag_stream(
+    req: QueryRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
+):
     doc_filter = str(req.doc_filter) if req.doc_filter else None
     results = await hybrid_search(req.query, db, top_k=req.max_chunks, doc_filter=doc_filter)
 
@@ -110,7 +119,11 @@ async def query_rag_stream(req: QueryRequest, db: AsyncSession = Depends(get_db)
 
 
 @router.post("/search", response_model=SearchResponse)
-async def search_only(req: SearchRequest, db: AsyncSession = Depends(get_db)):
+async def search_only(
+    req: SearchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
+):
     doc_filter = str(req.doc_filter) if req.doc_filter else None
     # Fetch a wider pool so page_filter still has candidates after MIN_RELEVANCE
     pool = req.top_k * 5 if req.page_filter is not None else req.top_k * 3
