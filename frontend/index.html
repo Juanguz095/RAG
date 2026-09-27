@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedRAG - Sistema RAG Medico</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page: #f5f0eb;
+      --bg-card: #ffffff;
+      --bg-sidebar: #ffffff;
+      --bg-chat: #f9f6f2;
+      --text-primary: #2d2a26;
+      --text-secondary: #6b6560;
+      --text-muted: #9e9893;
+      --accent: #c75b39;
+      --accent-light: #fdf0ec;
+      --accent-hover: #b04a2c;
+      --accent-soft: rgba(199,91,57,0.08);
+      --border: #e8e2db;
+      --border-light: #f0ebe5;
+      --success: #2d8a56;
+      --success-bg: #e8f5ee;
+      --warning: #d4870e;
+      --warning-bg: #fef3cd;
+      --danger: #c0392b;
+      --danger-bg: #fdecea;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+      --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+      --shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* LOGIN */
+    #login-screen { display:none; position:fixed; inset:0; background:var(--bg-page); z-index:1000; justify-content:center; align-items:center; }
+    #login-screen.show { display:flex; }
+    .login-box { background:var(--bg-card); padding:40px; border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); width:380px; border:1px solid var(--border); animation:fadeUp 0.4s ease; }
+    .login-logo { text-align:center; margin-bottom:28px; }
+    .login-logo-icon { width:48px; height:48px; background:var(--accent); border-radius:14px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; }
+    .login-logo-icon svg { width:24px; height:24px; fill:white; }
+    .login-logo h2 { font-size:22px; font-weight:700; color:var(--text-primary); }
+    .login-logo p { font-size:13px; color:var(--text-muted); margin-top:4px; }
+    .login-box input { width:100%; padding:12px 16px; margin-bottom:12px; background:var(--bg-page); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-primary); font-size:14px; font-family:inherit; transition:var(--transition); }
+    .login-box input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    .login-box button { width:100%; padding:12px; background:var(--accent); color:white; border:none; border-radius:var(--radius-sm); cursor:pointer; font-weight:600; font-size:14px; font-family:inherit; transition:var(--transition); }
+    .login-box button:hover { background:var(--accent-hover); transform:translateY(-1px); }
+    .login-box button:active { transform:translateY(0); }
+    .login-error { color:var(--danger); font-size:13px; margin-bottom:12px; display:none; text-align:center; }
+
+    /* APP */
+    #app { display:none; width:100%; height:100vh; }
+    #app.show { display:flex; }
+    .app-layout { display:flex; width:100%; height:100vh; }
+
+    /* SIDEBAR */
+    .sidebar { width:220px; background:var(--bg-sidebar); border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; height:100vh; }
+    .sidebar-logo { padding:20px 20px 16px; display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:36px; height:36px; background:var(--accent); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .logo-icon svg { width:18px; height:18px; fill:white; }
+    .logo-text { font-size:18px; font-weight:700; color:var(--text-primary); }
+    .sidebar-status { margin:0 20px 16px; display:flex; align-items:center; gap:6px; font-size:12px; color:var(--success); font-weight:500; }
+    .status-dot { width:7px; height:7px; background:var(--success); border-radius:50%; animation:pulse 2s infinite; }
+    .sidebar-nav { padding:0 12px; }
+    .nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); cursor:pointer; font-size:14px; font-weight:500; color:var(--text-secondary); transition:var(--transition); margin-bottom:2px; }
+    .nav-item:hover { background:var(--accent-soft); color:var(--accent); }
+    .nav-item.active { background:var(--accent-light); color:var(--accent); font-weight:600; }
+    .nav-item svg { width:18px; height:18px; flex-shrink:0; opacity:0.7; }
+    .nav-item.active svg { opacity:1; }
+    .sidebar-docs { flex:1; overflow-y:auto; padding:8px 12px; border-top:1px solid var(--border-light); margin-top:8px; }
+    .sidebar-docs-title { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; padding:8px 4px 6px; }
+    .doc-item { padding:10px 12px; border-radius:var(--radius-sm); cursor:pointer; margin-bottom:2px; transition:var(--transition); border:1px solid transparent; display:flex; align-items:center; gap:8px; }
+    .doc-item:hover { background:var(--accent-soft); border-color:var(--border); }
+    .doc-item.active { background:var(--accent-light); border-color:var(--accent); }
+    .doc-item-info { flex:1; min-width:0; }
+    .doc-item-name { font-size:13px; font-weight:500; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .doc-item-meta { font-size:11px; color:var(--text-muted); margin-top:2px; display:flex; align-items:center; gap:6px; }
+    .doc-status-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    .doc-status-dot.completed { background:var(--success); }
+    .doc-status-dot.processing { background:var(--warning); animation:pulse 1.5s infinite; }
+    .doc-status-dot.error { background:var(--danger); }
+    .doc-status-dot.pending { background:var(--text-muted); }
+    .doc-spinner { width:10px; height:10px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0; }
+    .doc-delete { width:24px; height:24px; background:none; border:none; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:var(--transition); color:var(--text-muted); flex-shrink:0; opacity:0; }
+    .doc-item:hover .doc-delete { opacity:1; }
+    .doc-delete:hover { background:var(--danger-bg); color:var(--danger); }
+    .doc-delete svg { width:14px; height:14px; }
+    .sidebar-user { padding:16px 20px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .user-info { display:flex; align-items:center; gap:10px; }
+    .user-avatar { width:32px; height:32px; background:linear-gradient(135deg, var(--accent), #e8956e); border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-size:13px; font-weight:600; }
+    .user-name { font-size:13px; font-weight:500; color:var(--text-primary); }
+    .logout-btn { background:none; border:none; cursor:pointer; padding:6px; border-radius:6px; transition:var(--transition); color:var(--text-muted); }
+    .logout-btn:hover { background:var(--danger-bg); color:var(--danger); }
+    .logout-btn svg { width:16px; height:16px; }
+
+    /* CENTER */
+    .center-column { flex:1; overflow-y:auto; padding:24px; scroll-behavior:smooth; }
+    .center-column::-webkit-scrollbar { width:6px; }
+    .center-column::-webkit-scrollbar-track { background:transparent; }
+    .center-column::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+    .center-column::-webkit-scrollbar-thumb:hover { background:var(--text-muted); }
+
+    /* CARDS */
+    .card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md); padding:20px; margin-bottom:16px; box-shadow:var(--shadow-sm); transition:var(--transition); }
+    .card:hover { box-shadow:var(--shadow-md); }
+    .card-header { display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-light); }
+    .card-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .card-icon svg { width:16px; height:16px; }
+    .card-icon.accent { background:var(--accent-light); color:var(--accent); }
+    .card-icon.accent svg { fill:var(--accent); }
+    .card-title { font-size:15px; font-weight:600; color:var(--text-primary); }
+
+    /* UPLOAD */
+    .upload-zone { border:2px dashed var(--border); border-radius:var(--radius-md); padding:32px; text-align:center; cursor:pointer; transition:var(--transition); position:relative; overflow:hidden; }
+    .upload-zone:hover, .upload-zone.dragover { border-color:var(--accent); background:var(--accent-light); }
+    .upload-zone.dragover { transform:scale(1.01); }
+    .upload-zone.uploading { border-color:var(--accent); background:var(--accent-light); pointer-events:none; }
+    .upload-zone.upload-ok { border-color:var(--success); background:var(--success-bg); }
+    .upload-zone.upload-error { border-color:var(--danger); background:var(--danger-bg); }
+    .upload-icon { color:var(--text-muted); margin-bottom:8px; transition:var(--transition); }
+    .upload-zone.upload-ok .upload-icon { color:var(--success); }
+    .upload-zone.upload-error .upload-icon { color:var(--danger); }
+    .upload-icon svg { width:32px; height:32px; }
+    .upload-text { font-size:14px; font-weight:600; color:var(--text-primary); }
+    .upload-link { color:var(--accent); font-weight:500; cursor:pointer; }
+    .upload-hint { font-size:12px; color:var(--text-muted); margin-top:6px; }
+    .upload-status { margin-top:12px; font-size:13px; font-weight:500; display:none; align-items:center; justify-content:center; gap:6px; }
+    .upload-status.show { display:flex; }
+    .upload-status.ok { color:var(--success); }
+    .upload-status.error { color:var(--danger); }
+    .upload-status svg { width:16px; height:16px; }
+    .upload-progress { display:none; margin-top:16px; }
+    .upload-progress.show { display:block; }
+    .progress-info { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+    .progress-filename { font-size:13px; color:var(--text-secondary); font-weight:500; }
+    .progress-pct { font-size:12px; color:var(--accent); font-weight:600; }
+    .progress-bar { width:100%; height:6px; background:var(--border-light); border-radius:3px; overflow:hidden; }
+    .progress-fill { height:100%; background:linear-gradient(90deg, var(--accent), #e8956e); border-radius:3px; transition:width 0.3s ease; width:0%; }
+
+    /* PATIENT */
+    .patient-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 24px; }
+    .patient-field label { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:2px; }
+    .patient-field span { font-size:14px; font-weight:500; color:var(--text-primary); }
+    .patient-field span.empty { color:var(--text-muted); font-style:italic; font-weight:400; }
+
+    /* DIAGNOSIS */
+    .diagnosis-box { background:var(--accent-light); border:1px solid rgba(199,91,57,0.15); border-radius:var(--radius-sm); padding:12px 16px; margin-bottom:12px; }
+    .diagnosis-label { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+    .diagnosis-text { font-size:14px; font-weight:600; color:var(--accent); }
+    .tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .tag { display:inline-block; padding:4px 10px; background:var(--bg-page); border:1px solid var(--border); border-radius:20px; font-size:12px; font-weight:500; color:var(--text-secondary); transition:var(--transition); }
+    .tag:hover { border-color:var(--accent); color:var(--accent); }
+    .cie-badge { display:inline-flex; align-items:center; gap:6px; margin-top:8px; }
+    .cie-code { padding:3px 8px; background:var(--accent); color:white; border-radius:4px; font-size:12px; font-weight:700; font-family:monospace; }
+    .cie-desc { font-size:13px; color:var(--text-secondary); }
+
+    /* SEARCH */
+    .search-input-wrapper { position:relative; margin-bottom:12px; }
+    .search-input-wrapper svg { position:absolute; left:14px; top:50%; transform:translateY(-50%); width:18px; height:18px; color:var(--text-muted); }
+    .search-input { width:100%; padding:12px 16px 12px 42px; background:var(--bg-page); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:14px; font-family:inherit; color:var(--text-primary); transition:var(--transition); }
+    .search-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    .search-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+    .chip { padding:5px 12px; background:var(--bg-page); border:1px solid var(--border); border-radius:20px; font-size:12px; font-weight:500; color:var(--text-secondary); cursor:pointer; transition:var(--transition); }
+    .chip:hover { border-color:var(--accent); color:var(--accent); }
+    .chip.active { background:var(--accent); color:white; border-color:var(--accent); }
+    .search-filters { display:flex; gap:12px; margin-bottom:12px; }
+    .filter-select { padding:8px 12px; background:var(--bg-page); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13px; font-family:inherit; color:var(--text-secondary); cursor:pointer; min-width:120px; }
+    .filter-select:focus { outline:none; border-color:var(--accent); }
+    .search-stats { font-size:12px; color:var(--text-muted); margin-bottom:12px; }
+    .search-hint { font-size:12px; color:var(--text-muted); background:var(--bg-page); border:1px dashed var(--border); border-radius:var(--radius-sm); padding:8px 10px; margin-bottom:10px; }
+    .suggestions-label { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px; }
+    .occ-header { font-size:13px; font-weight:600; color:var(--text-primary); margin-bottom:10px; line-height:1.4; }
+    .occ-header strong { color:var(--accent); }
+    .occ-item { background:var(--bg-page); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:8px; cursor:pointer; transition:var(--transition); }
+    .occ-item:hover { border-color:var(--accent); transform:translateX(2px); box-shadow:var(--shadow-sm); }
+    .occ-item.active { border-color:var(--accent); border-left:3px solid var(--accent); background:var(--accent-light); }
+    .occ-meta { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.3px; margin-bottom:6px; }
+    .occ-context { font-size:13px; color:var(--text-secondary); line-height:1.55; margin-bottom:8px; }
+    .occ-context mark { background:rgba(255,140,0,0.28); color:var(--text-primary); font-weight:700; padding:1px 3px; border-radius:2px; }
+    .result-actions { display:flex; gap:12px; }
+    .result-action { font-size:12px; font-weight:500; color:var(--accent); cursor:pointer; display:flex; align-items:center; gap:4px; transition:var(--transition); }
+    .result-action:hover { color:var(--accent-hover); }
+    .result-action svg { width:14px; height:14px; }
+    .empty-search { text-align:center; padding:16px 12px; }
+    .empty-search .empty-examples { font-size:12px; color:var(--text-muted); margin-top:6px; }
+    .empty-search .empty-examples span { cursor:pointer; color:var(--accent); font-weight:600; }
+    .empty-search .empty-examples span:hover { text-decoration:underline; }
+    .ask-assistant-btn { display:inline-flex; align-items:center; gap:6px; margin-top:12px; padding:7px 14px; background:var(--accent); color:#fff; border:none; border-radius:var(--radius-sm); font-size:12px; font-weight:600; cursor:pointer; transition:var(--transition); }
+    .ask-assistant-btn:hover { background:var(--accent-hover); }
+    .search-loading { text-align:center; padding:22px 12px; color:var(--text-muted); font-size:13px; }
+    .search-loading .typing-indicator { display:inline-flex; gap:5px; margin-bottom:8px; }
+
+    /* RIGHT */
+    .right-column { width:45%; min-width:350px; max-width:700px; background:var(--bg-sidebar); border-left:1px solid var(--border); display:flex; flex-direction:column; height:100vh; flex-shrink:0; }
+    .pdf-title { font-size:14px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; padding:8px 16px; border-bottom:1px solid var(--border); }
+
+    /* PDF Controls */
+    .pdf-controls { padding:4px 12px; border-bottom:1px solid var(--border-light); display:flex; align-items:center; gap:6px; background:var(--bg-card); flex-shrink:0; }
+    .pdf-ctrl-btn { width:28px; height:28px; background:none; border:1px solid var(--border); border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:var(--transition); color:var(--text-secondary); }
+    .pdf-ctrl-btn:hover { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+    .pdf-ctrl-btn:active { transform:scale(0.95); }
+    .pdf-ctrl-btn svg { width:14px; height:14px; }
+    .pdf-ctrl-sep { width:1px; height:18px; background:var(--border); }
+    .pdf-page-indicator { font-size:12px; color:var(--text-secondary); font-weight:500; min-width:80px; text-align:center; }
+    .pdf-zoom-label { font-size:12px; color:var(--text-muted); min-width:40px; text-align:center; }
+    .pdf-viewer { flex:1; background:#525659; overflow-y:auto; overflow-x:auto; display:flex; flex-direction:column; padding:10px; min-height:0; }
+    .pdf-viewer canvas { display:block; box-shadow:0 2px 12px rgba(0,0,0,0.3); flex-shrink:0; }
+
+    /* PDF text layer for highlights */
+    .pdf-page-wrapper { position:relative; flex-shrink:0; margin-left:auto; margin-right:auto; }
+    .pdf-page-wrapper.page-match { outline:3px solid var(--accent); outline-offset:2px; border-radius:4px; }
+    .pdf-text-layer { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; opacity:0.25; line-height:1.0; pointer-events:none; }
+    .pdf-text-layer > span { color:transparent; position:absolute; white-space:pre; transform-origin:0% 0%; }
+    .pdf-page-marker { position:absolute; bottom:8px; right:8px; background:var(--accent); color:white; font-size:11px; font-weight:600; padding:3px 8px; border-radius:10px; z-index:10; pointer-events:none; opacity:0; transition:opacity 0.3s; }
+    .pdf-page-wrapper.page-match .pdf-page-marker { opacity:1; }
+    .pdf-placeholder { text-align:center; padding:20px; color:var(--text-muted); width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; }
+
+    /* Chat collapsible */
+    .chat-section { border-top:1px solid var(--border); flex-shrink:0; transition:height 0.25s ease; overflow:hidden; }
+    .chat-section.collapsed { height:44px; }
+    .chat-section.expanded { height:220px; }
+    .chat-header { display:flex; align-items:center; justify-content:space-between; padding:0 12px; height:44px; cursor:pointer; user-select:none; flex-shrink:0; }
+    .chat-header:hover { background:var(--bg-page); }
+    .chat-header-left { display:flex; align-items:center; gap:6px; }
+    .chat-header-left svg { width:16px; height:16px; color:var(--accent); }
+    .chat-header-title { font-size:12px; font-weight:600; color:var(--text-secondary); }
+    .chat-header-toggle { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); transition:transform 0.2s ease; }
+    .chat-section.expanded .chat-header-toggle { transform:rotate(180deg); }
+    .chat-body { display:flex; flex-direction:column; flex:1; min-height:0; }
+    .chat-messages { flex:1; overflow-y:auto; padding:8px 14px; }
+    .chat-messages::-webkit-scrollbar { width:4px; }
+    .chat-messages::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    .chat-input-area { padding:6px 12px; border-top:1px solid var(--border-light); display:flex; gap:6px; align-items:center; }
+    .chat-input { flex:1; padding:7px 10px; background:var(--bg-page); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13px; font-family:inherit; color:var(--text-primary); resize:none; max-height:50px; transition:var(--transition); }
+    .chat-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    .chat-send { width:28px; height:28px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:var(--transition); flex-shrink:0; }
+    .chat-send:hover { background:var(--accent-hover); transform:scale(1.05); }
+    .chat-send:active { transform:scale(0.95); }
+    .chat-send:disabled { background:var(--border); cursor:not-allowed; transform:none; }
+    .chat-send svg { width:14px; height:14px; fill:white; }
+    .chat-hint { text-align:right; font-size:10px; color:var(--text-muted); padding:0 12px 4px; }
+    .chat-msg { margin-bottom:8px; animation:fadeUp 0.3s ease; }
+    .chat-msg-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+    .chat-msg-role { font-size:12px; font-weight:600; color:var(--text-secondary); }
+    .chat-msg-time { font-size:11px; color:var(--text-muted); }
+    .chat-msg-avatar { width:24px; height:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; margin-right:6px; flex-shrink:0; }
+    .chat-msg.user-msg .chat-msg-avatar { background:var(--accent-light); color:var(--accent); }
+    .chat-msg.ai-msg .chat-msg-avatar { background:var(--accent); color:white; }
+    .chat-msg-content { font-size:13px; line-height:1.6; color:var(--text-secondary); padding-left:30px; }
+    .chat-msg-sources { margin-top:6px; padding-left:30px; font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:4px; }
+    .chat-msg-sources svg { width:12px; height:12px; }
+
+    /* TOAST */
+    .toast-container { position:fixed; top:20px; right:20px; z-index:2000; display:flex; flex-direction:column; gap:8px; }
+    .toast { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 16px; box-shadow:var(--shadow-lg); font-size:13px; display:flex; align-items:center; gap:8px; animation:slideIn 0.3s ease; max-width:320px; }
+    .toast.success { border-left:3px solid var(--success); }
+    .toast.error { border-left:3px solid var(--danger); }
+    .toast.info { border-left:3px solid var(--accent); }
+    .toast-exit { animation:slideOut 0.3s ease forwards; }
+
+    /* TYPING */
+    .typing-indicator { display:inline-flex; gap:4px; padding:8px 12px; }
+    .typing-dot { width:6px; height:6px; background:var(--text-muted); border-radius:50%; animation:typingBounce 1.4s infinite; }
+    .typing-dot:nth-child(2) { animation-delay:0.2s; }
+    .typing-dot:nth-child(3) { animation-delay:0.4s; }
+
+    /* EMPTY STATE */
+    .empty-state { text-align:center; padding:40px 20px; color:var(--text-muted); }
+    .empty-state svg { width:48px; height:48px; margin-bottom:12px; opacity:0.3; }
+    .empty-state p { font-size:13px; }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes slideIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+    @keyframes slideOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(40px); } }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+    @keyframes typingBounce { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-4px); } }
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="login-screen" class="show">
+    <div class="login-box">
+      <div class="login-logo">
+        <div class="login-logo-icon">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+        </div>
+        <h2>MedRAG</h2>
+        <p>Sistema RAG Medico Local</p>
+      </div>
+      <div id="login-error" class="login-error"></div>
+      <input type="text" id="login-user" placeholder="Usuario" value="admin">
+      <input type="password" id="login-pass" placeholder="Contrasena" value="admin123">
+      <button onclick="doLogin()">Ingresar</button>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- APP -->
+  <div id="app">
+    <div class="app-layout">
+
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sidebar-logo">
+          <div class="logo-icon">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+          </div>
+          <span class="logo-text">MedRAG</span>
+        </div>
+        <div class="sidebar-status">
+          <span class="status-dot"></span>
+          Backend activo
+        </div>
+        <nav class="sidebar-nav">
+          <div class="nav-item active" onclick="setView(this,'dashboard')">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+            Dashboard
+          </div>
+          <div class="nav-item" onclick="setView(this,'historial')">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+            Historial
+          </div>
+          <div class="nav-item" onclick="setView(this,'config')">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            Configuracion
+          </div>
+        </nav>
+        <div class="sidebar-docs" id="sidebar-docs">
+          <div class="sidebar-docs-title">Documentos</div>
+          <div id="docs-list">
+            <div class="empty-state"><p>Cargando documentos...</p></div>
+          </div>
+        </div>
+        <div class="sidebar-user">
+          <div class="user-info">
+            <div class="user-avatar">DG</div>
+            <span class="user-name">Dr. Garcia</span>
+          </div>
+          <button class="logout-btn" onclick="doLogout()" title="Cerrar sesion">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+          </button>
+        </div>
+      </aside>
+
+      <!-- CENTER -->
+      <main class="center-column" id="center-column">
+
+        <!-- UPLOAD -->
+        <div class="card" id="upload-card">
+          <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+            <div class="upload-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            </div>
+            <div class="upload-text" id="upload-text">Arrastra tu PDF aqui</div>
+            <div class="upload-link" id="upload-link">o selecciona un archivo</div>
+            <div class="upload-hint">Solo archivos .pdf - Maximo 100MB</div>
+            <div class="upload-status" id="upload-status"></div>
+            <input type="file" id="file-input" accept=".pdf" style="display:none">
+          </div>
+          <div class="upload-progress" id="upload-progress">
+            <div class="progress-info">
+              <span class="progress-filename" id="progress-filename"></span>
+              <span class="progress-pct" id="progress-pct">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SMART SEARCH -->
+        <div class="card" id="search-card">
+          <div class="card-header">
+            <div class="card-icon accent">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            </div>
+            <span class="card-title">Busqueda Inteligente</span>
+          </div>
+          <div class="search-input-wrapper">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <input type="text" class="search-input" id="search-input" placeholder="Selecciona un documento para buscar" disabled oninput="onSearchInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();clearTimeout(searchDebounce);doSearch({focusWord: this.value.trim()})}">
+          </div>
+          <div class="search-hint" id="search-hint">Abre un documento de la izquierda para buscar dentro de el.</div>
+          <div class="search-chips" id="search-chips"></div>
+          <div class="search-filters">
+            <select class="filter-select" id="filter-pages" onchange="doSearch({focusWord: lastFocusWord})">
+              <option value="all">Paginas: Todas</option>
+            </select>
+          </div>
+          <div class="search-stats" id="search-stats"></div>
+          <div id="search-results"></div>
+        </div>
+      </main>
+
+      <!-- RIGHT -->
+      <aside class="right-column" id="right-column" style="display:none">
+        <div class="pdf-title" id="pdf-title">Sin documento seleccionado</div>
+        <div class="pdf-controls" id="pdf-controls" style="display:none">
+          <button class="pdf-ctrl-btn" onclick="pdfGoToPage(pdfCurrentPage-1)" title="Pagina anterior">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </button>
+          <span class="pdf-page-indicator" id="pdf-page-ind">Pag 1 / 1</span>
+          <button class="pdf-ctrl-btn" onclick="pdfGoToPage(pdfCurrentPage+1)" title="Pagina siguiente">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+          </button>
+          <div class="pdf-ctrl-sep"></div>
+          <button class="pdf-ctrl-btn" onclick="pdfZoom(-0.1)" title="Zoom -">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg>
+          </button>
+          <span class="pdf-zoom-label" id="pdf-zoom-label">100%</span>
+          <button class="pdf-ctrl-btn" onclick="pdfZoom(0.1)" title="Zoom +">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          </button>
+          <button class="pdf-ctrl-btn" onclick="pdfZoomFit()" title="Ajustar ancho">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5v14h18V5H3zm4 2v2H5V7h2zm-2 6h2v2H5v-2zm0 4h2v2H5v-2zm14 2h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/></svg>
+          </button>
+          <button class="pdf-ctrl-btn" onclick="pdfGoToPage(1)" title="Primera pagina">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6 1.41-1.41zM6 6h2v12H6V6z"/></svg>
+          </button>
+        </div>
+        <div class="pdf-viewer" id="pdf-viewer">
+          <div class="pdf-placeholder">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+            <div>Selecciona un documento para verlo</div>
+          </div>
+        </div>
+        <div class="chat-section collapsed" id="chat-section">
+          <div class="chat-header" onclick="toggleChat()">
+            <div class="chat-header-left">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+              <span class="chat-header-title">Consulta Medica IA</span>
+            </div>
+            <div class="chat-header-toggle">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+            </div>
+          </div>
+          <div class="chat-body">
+            <div class="chat-messages" id="chat-messages">
+              <div class="chat-msg ai-msg">
+                <div class="chat-msg-header">
+                  <div style="display:flex;align-items:center">
+                    <span class="chat-msg-avatar">IA</span>
+                    <span class="chat-msg-role">Consulta Medica IA</span>
+                  </div>
+                </div>
+                <div class="chat-msg-content">Hola! Selecciona un documento y hazme cualquier pregunta sobre el.</div>
+              </div>
+            </div>
+            <div class="chat-input-area">
+              <textarea class="chat-input" id="chat-input" rows="1" placeholder="Escribe tu consulta..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendQuery()}"></textarea>
+              <button class="chat-send" id="chat-send" onclick="sendQuery()">
+                <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="chat-hint">Presiona Enter para enviar</div>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    const API = '';
+    let token = localStorage.getItem('token');
+    let docs = [];
+    let selectedDocId = null;
+    let docChunks = [];
+    let docWordBoxes = {};
+    let pageBoxMeta = {};
+    let pageSortedOrder = {};
+    let docDataStatus = 'idle'; // idle | loading | ready | error
+    let pdfZoomLevel = 1;
+    let pdfCurrentPage = 1;
+    let pageObserver = null;
+    let pdfTotalPages = 1;
+    let pdfDoc = null;
+    let pdfLoadGeneration = 0;
+    let currentView = 'dashboard';
+    let synonymGroups = [];
+    let lastFocusVariants = null;
+    let hlCanvasCache = [];
+    let pageWrapperCache = [];
+
+    // ── AUTH ──
+    function showApp() {
+      document.getElementById('login-screen').classList.remove('show');
+      document.getElementById('app').classList.add('show');
+      loadDocs();
+      loadSynonyms();
+    }
+
+    async function doLogin() {
+      const user = document.getElementById('login-user').value;
+      const pass = document.getElementById('login-pass').value;
+      try {
+        const res = await fetch(API + '/api/v1/auth/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username: user, password: pass})
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          document.getElementById('login-error').textContent = err.detail || 'Error';
+          document.getElementById('login-error').style.display = 'block';
+          return;
+        }
+        const data = await res.json();
+        token = data.access_token;
+        localStorage.setItem('token', token);
+        showApp();
+      } catch(e) {
+        document.getElementById('login-error').textContent = 'Error de conexion';
+        document.getElementById('login-error').style.display = 'block';
+      }
+    }
+
+    function doLogout() {
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+      token = null;
+      localStorage.removeItem('token');
+      document.getElementById('app').classList.remove('show');
+      document.getElementById('login-screen').classList.add('show');
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && document.getElementById('login-screen').classList.contains('show')) doLogin();
+    });
+
+    function authHeaders() {
+      return token ? {'Authorization': 'Bearer ' + token} : {};
+    }
+
+    async function loadSynonyms() {
+      try {
+        const res = await fetch(API + '/api/v1/synonyms', {headers: authHeaders()});
+        if (!res.ok) return;
+        const data = await res.json();
+        synonymGroups = data.groups || [];
+      } catch (e) { console.warn('synonyms load failed', e); }
+    }
+
+    // ── DOCUMENTS ──
+    async function loadDocs() {
+      try {
+        const res = await fetch(API + '/api/v1/documents', {headers: authHeaders()});
+        if (!res.ok) { if (res.status === 401) doLogout(); return []; }
+        const data = await res.json();
+        docs = data.documents || [];
+        renderDocs();
+        const hasProcessing = docs.some(d => d.status === 'processing' || d.status === 'pending');
+        if (hasProcessing) startPolling();
+        return docs;
+      } catch(e) { console.error(e); return []; }
+    }
+
+    function renderDocs() {
+      const list = document.getElementById('docs-list');
+      if (!docs.length) {
+        docsRenderSig = '';
+        list.innerHTML = '<div class="empty-state"><p>No hay documentos</p></div>';
+        return;
+      }
+      const sig = docs.map(d => d.id + ':' + d.status + ':' + (d.total_chunks || 0)).join('|');
+      if (sig === docsRenderSig) return;
+      docsRenderSig = sig;
+      list.innerHTML = docs.map(d => {
+        let statusHtml;
+        if (d.status === 'processing') {
+          statusHtml = '<div class="doc-spinner"></div> Procesando...';
+        } else if (d.status === 'completed') {
+          statusHtml = '<span class="doc-status-dot completed"></span> ' + d.total_chunks + ' fragments';
+        } else if (d.status === 'error') {
+          statusHtml = '<span class="doc-status-dot error"></span> Error';
+        } else {
+          statusHtml = '<span class="doc-status-dot pending"></span> Pendiente';
+        }
+        return `
+        <div class="doc-item ${d.id === selectedDocId ? 'active' : ''}" onclick="selectDoc('${d.id}')" id="doc-${d.id}">
+          <div class="doc-item-info">
+            <div class="doc-item-name">${esc(d.original_name)}</div>
+            <div class="doc-item-meta">${statusHtml}</div>
+          </div>
+          <button class="doc-delete" onclick="event.stopPropagation();deleteDoc('${d.id}','${esc(d.original_name)}')" title="Eliminar">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
+        </div>`;
+      }).join('');
+    }
+
+    let pollInterval = null;
+    let docsRenderSig = '';
+    function startPolling() {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(async () => {
+        const hasProcessing = docs.some(d => d.status === 'processing' || d.status === 'pending');
+        if (!hasProcessing) { clearInterval(pollInterval); pollInterval = null; return; }
+        try {
+          const res = await fetch(API + '/api/v1/documents', {headers: authHeaders()});
+          const data = await res.json();
+          docs = data.documents || [];
+          renderDocs();
+          if (selectedDocId) {
+            const doc = docs.find(d => d.id === selectedDocId);
+            if (doc && doc.status === 'completed' && docDataStatus !== 'ready' && docDataStatus !== 'loading') {
+              loadDocData(selectedDocId);
+            }
+          }
+        } catch(e) {}
+      }, 3000);
+    }
+
+    async function deleteDoc(docId, docName) {
+      if (!confirm('Eliminar "' + docName + '"?')) return;
+      try {
+        const res = await fetch(API + '/api/v1/documents/' + docId, {
+          method: 'DELETE',
+          headers: authHeaders()
+        });
+        if (res.ok || res.status === 204) {
+          showToast('Documento eliminado', 'success');
+          if (selectedDocId === docId) showDashboard();
+          await loadDocs();
+        } else {
+          showToast('Error al eliminar', 'error');
+        }
+      } catch(e) {
+        showToast('Error de conexion', 'error');
+      }
+    }
+
+    async function selectDoc(docId) {
+      selectedDocId = docId;
+      currentView = 'doc';
+      const doc = docs.find(d => d.id === docId);
+      if (!doc) return;
+      clearPdfHighlights();
+      docChunks = [];
+      docWordBoxes = {};
+      pageBoxMeta = {};
+      pageSortedOrder = {};
+      sortedPageKeys = [];
+      docDataStatus = 'idle';
+      document.getElementById('search-results').innerHTML = '';
+      document.getElementById('search-stats').textContent = '';
+      document.getElementById('search-chips').innerHTML = '';
+      const sInput = document.getElementById('search-input');
+      sInput.disabled = false;
+      sInput.placeholder = 'Buscar una palabra en este documento...';
+      document.getElementById('search-hint').style.display = 'none';
+
+      document.querySelectorAll('.doc-item').forEach(el => el.classList.remove('active'));
+      const el = document.getElementById('doc-' + docId);
+      if (el) el.classList.add('active');
+
+      document.getElementById('upload-card').style.display = 'none';
+      document.getElementById('right-column').style.display = '';
+      document.getElementById('pdf-title').textContent = doc.original_name;
+      loadPdf(docId);
+      if (doc.status === 'completed') {
+        loadDocData(docId);
+      }
+    }
+
+    function showDashboard() {
+      currentView = 'dashboard';
+      selectedDocId = null;
+      clearPdfHighlights();
+      docChunks = [];
+      docWordBoxes = {};
+      pageBoxMeta = {};
+      pageSortedOrder = {};
+      sortedPageKeys = [];
+      docDataStatus = 'idle';
+      document.getElementById('upload-card').style.display = '';
+      document.getElementById('search-card').style.display = '';
+      document.getElementById('right-column').style.display = 'none';
+      document.querySelectorAll('.doc-item').forEach(el => el.classList.remove('active'));
+      const sInput = document.getElementById('search-input');
+      sInput.disabled = true;
+      sInput.value = '';
+      sInput.placeholder = 'Selecciona un documento para buscar';
+      document.getElementById('search-hint').style.display = '';
+      document.getElementById('search-results').innerHTML = '';
+      document.getElementById('search-stats').textContent = '';
+      document.getElementById('search-chips').innerHTML = '';
+      const zone = document.getElementById('upload-zone');
+      if (zone) {
+        zone.className = 'upload-zone';
+        zone.innerHTML =
+          '<div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></div>' +
+          '<div class="upload-text" id="upload-text">Arrastra tu PDF aqui</div>' +
+          '<div class="upload-link" id="upload-link">o selecciona un archivo</div>' +
+          '<div class="upload-hint">Solo archivos .pdf - Maximo 100MB</div>' +
+          '<div class="upload-status" id="upload-status"></div>' +
+          '<input type="file" id="file-input" accept=".pdf" style="display:none">';
+        zone.onclick = () => document.getElementById('file-input').click();
+        const progress = document.getElementById('upload-progress');
+        if (progress) progress.classList.remove('show');
+      }
+    }
+
+    async function loadDocData(docId, force) {
+      if (!force && docDataStatus === 'ready' && selectedDocId === docId) return;
+      docDataStatus = 'loading';
+      updateSearchHint();
+      try {
+        const res = await fetch(API + '/api/v1/documents/' + docId + '/chunks', {headers: authHeaders()});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (selectedDocId !== docId) return;
+        docChunks = data.chunks || [];
+        docWordBoxes = data.word_boxes || {};
+        buildWordIndex();
+        docDataStatus = 'ready';
+        generateSearchChipsFromChunks(docChunks);
+        populatePageFilter();
+        updateSearchHint();
+      } catch(e) {
+        console.error('Error loading doc data:', e);
+        if (selectedDocId === docId) {
+          docDataStatus = 'error';
+          updateSearchHint();
+        }
+      }
+    }
+
+    function updateSearchHint() {
+      const hint = document.getElementById('search-hint');
+      if (!hint) return;
+      if (currentView !== 'doc') return;
+      if (docDataStatus === 'loading') {
+        hint.style.display = '';
+        hint.textContent = 'Cargando datos del documento...';
+      } else if (docDataStatus === 'error') {
+        hint.style.display = '';
+        hint.textContent = 'No se pudieron cargar los fragmentos. La busqueda puede fallar.';
+      } else if (docDataStatus === 'ready') {
+        hint.style.display = 'none';
+      }
+    }
+
+    // ── PDF VIEWER (PDF.js) ──
+    async function loadPdf(docId) {
+      const gen = ++pdfLoadGeneration;
+      const viewer = document.getElementById('pdf-viewer');
+      const controls = document.getElementById('pdf-controls');
+      controls.style.display = 'flex';
+      pdfZoomLevel = 1;
+      pdfCurrentPage = 1;
+      pdfDoc = null;
+      hlCanvasCache = [];
+      pageWrapperCache = [];
+      if (pageObserver) { pageObserver.disconnect(); pageObserver = null; }
+      updatePdfZoomLabel();
+      viewer.innerHTML = '<div class="pdf-placeholder"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div><div style="margin-top:8px">Cargando PDF...</div></div>';
+
+      try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const url = API + '/api/v1/documents/' + docId + '/pdf';
+        const loadingTask = pdfjsLib.getDocument({url: url, withCredentials: false});
+        pdfDoc = await loadingTask.promise;
+        if (gen !== pdfLoadGeneration) return;
+        pdfTotalPages = pdfDoc.numPages;
+        updatePdfPageIndicator();
+        await renderAllPdfPages();
+      } catch(e) {
+        if (gen !== pdfLoadGeneration) return;
+        viewer.innerHTML = '<div class="pdf-placeholder"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg><div>Error cargando PDF</div></div>';
+      }
+    }
+
+    async function renderAllPdfPages() {
+      const viewer = document.getElementById('pdf-viewer');
+      viewer.innerHTML = '';
+      const containerWidth = viewer.clientWidth - 20;
+      pdfPageScales = {};
+      hlCanvasCache = [];
+
+      const pagePromises = [];
+      for (let i = 1; i <= pdfTotalPages; i++) {
+        pagePromises.push(pdfDoc.getPage(i));
+      }
+      const loadedPages = await Promise.all(pagePromises);
+      if (!pdfDoc) return;
+
+      for (let i = 0; i < loadedPages.length; i++) {
+        const pageNum = i + 1;
+        const page = loadedPages[i];
+        const unscaledViewport = page.getViewport({ scale: 1 });
+        const scale = containerWidth / unscaledViewport.width;
+        const viewport = page.getViewport({ scale });
+
+        pdfPageScales[pageNum] = {
+          scale: scale,
+          baseWidth: viewport.width,
+          baseHeight: viewport.height,
+          pdfWidth: unscaledViewport.width,
+          pdfHeight: unscaledViewport.height,
+          canvasWidth: viewport.width,
+          canvasHeight: viewport.height,
+        };
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'pdf-page-wrapper';
+        wrapper.dataset.page = pageNum;
+
+        const canvas = document.createElement('canvas');
+        canvas.dataset.page = pageNum;
+        canvas.style.cursor = 'pointer';
+        canvas.onclick = () => { pdfCurrentPage = pageNum; updatePdfPageIndicator(); };
+        const ctx = canvas.getContext('2d');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        wrapper.appendChild(canvas);
+
+        const hlCanvas = document.createElement('canvas');
+        hlCanvas.className = 'pdf-hl-overlay';
+        hlCanvas.id = 'hl-canvas-' + pageNum;
+        hlCanvas.width = viewport.width;
+        hlCanvas.height = viewport.height;
+        hlCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
+        wrapper.appendChild(hlCanvas);
+        hlCanvasCache.push(hlCanvas);
+
+        const textLayerDiv = document.createElement('div');
+        textLayerDiv.className = 'pdf-text-layer';
+        textLayerDiv.id = 'text-layer-' + pageNum;
+        wrapper.appendChild(textLayerDiv);
+
+        const marker = document.createElement('div');
+        marker.className = 'pdf-page-marker';
+        marker.id = 'page-marker-' + pageNum;
+        wrapper.appendChild(marker);
+
+        viewer.appendChild(wrapper);
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+
+        try {
+          const textContent = await page.getTextContent();
+          renderTextLayer(textContent, textLayerDiv, viewport);
+        } catch(e) {}
+
+        if (pageNum % 4 === 0) {
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+      applyPdfZoom();
+      setupPageScrollObserver();
+    }
+
+    function setupPageScrollObserver() {
+      if (pageObserver) pageObserver.disconnect();
+      const viewer = document.getElementById('pdf-viewer');
+      const wrappers = viewer.querySelectorAll('.pdf-page-wrapper');
+      if (!wrappers.length) return;
+      const ratios = new Map();
+      pageObserver = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          ratios.set(e.target, e.isIntersecting ? e.intersectionRatio : 0);
+        }
+        let best = null;
+        let bestRatio = 0;
+        ratios.forEach((ratio, el) => {
+          if (ratio > bestRatio) { bestRatio = ratio; best = el; }
+        });
+        if (best && bestRatio > 0) {
+          const page = parseInt(best.dataset.page, 10);
+          if (page && page !== pdfCurrentPage) {
+            pdfCurrentPage = page;
+            updatePdfPageIndicator();
+          }
+        }
+      }, {
+        root: viewer,
+        threshold: [0, 0.15, 0.35, 0.5, 0.65, 0.85, 1]
+      });
+      wrappers.forEach(w => pageObserver.observe(w));
+    }
+
+    function applyPdfZoom() {
+      const z = pdfZoomLevel;
+      const wrappers = pageWrapperCache.length ? pageWrapperCache : document.querySelectorAll('.pdf-page-wrapper');
+      pageWrapperCache = Array.from(wrappers);
+      for (const wrapper of pageWrapperCache) {
+        const page = parseInt(wrapper.dataset.page);
+        const info = pdfPageScales[page];
+        if (!info) continue;
+        const w = info.baseWidth * z;
+        const h = info.baseHeight * z;
+        const canvas = wrapper.querySelector('canvas:not(.pdf-hl-overlay)');
+        const hl = wrapper.querySelector('.pdf-hl-overlay');
+        const textLayer = wrapper.querySelector('.pdf-text-layer');
+        if (canvas) {
+          canvas.style.width = w + 'px';
+          canvas.style.height = h + 'px';
+        }
+        if (hl) {
+          hl.style.width = w + 'px';
+          hl.style.height = h + 'px';
+        }
+        if (textLayer) {
+          textLayer.style.width = info.baseWidth + 'px';
+          textLayer.style.height = info.baseHeight + 'px';
+          textLayer.style.transform = 'scale(' + z + ')';
+          textLayer.style.transformOrigin = '0 0';
+        }
+      }
+    }
+
+    function renderTextLayer(textContent, textLayerDiv, viewport) {
+      const items = textContent.items;
+      for (const item of items) {
+        if (!item.str || !item.str.trim()) continue;
+        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+        const span = document.createElement('span');
+        span.textContent = item.str;
+        const fontSize = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
+        span.style.fontSize = fontSize + 'px';
+        span.style.fontFamily = item.fontName || 'sans-serif';
+        span.style.left = tx[4] + 'px';
+        span.style.top = tx[5] + 'px';
+        span.style.transform = 'rotate(' + (Math.atan2(tx[1], tx[0]) * 180 / Math.PI) + 'deg)';
+        textLayerDiv.appendChild(span);
+      }
+    }
+
+    async function renderPdfPage(pageNum) {
+      if (!pdfDoc || pageNum < 1 || pageNum > pdfTotalPages) return;
+      pdfCurrentPage = pageNum;
+      updatePdfPageIndicator();
+      const viewer = document.getElementById('pdf-viewer');
+      const canvas = viewer.querySelector('canvas[data-page="' + pageNum + '"]');
+      if (canvas) canvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function pdfGoToPage(page) {
+      if (page < 1) page = 1;
+      if (page > pdfTotalPages) page = pdfTotalPages;
+      renderPdfPage(page);
+    }
+
+    function pdfZoom(delta) {
+      pdfZoomLevel = Math.max(0.3, Math.min(3, pdfZoomLevel + delta));
+      updatePdfZoomLabel();
+      if (pdfDoc) applyPdfZoom();
+    }
+
+    function pdfZoomFit() {
+      pdfZoomLevel = 1;
+      updatePdfZoomLabel();
+      if (pdfDoc) applyPdfZoom();
+    }
+
+    function updatePdfZoomLabel() {
+      document.getElementById('pdf-zoom-label').textContent = Math.round(pdfZoomLevel * 100) + '%';
+    }
+
+    function updatePdfPageIndicator() {
+      document.getElementById('pdf-page-ind').textContent = 'Pag ' + pdfCurrentPage + ' / ' + pdfTotalPages;
+    }
+
+    // ── SEARCH CHIPS ──
+    function generateSearchChipsFromChunks(chunks) {
+      const words = {};
+      const stopWords = new Set(['el','la','los','las','un','una','de','del','en','con','por','para','que','se','su','al','es','lo','como','mas','o','e','a','i','u','no','si','este','esta','estos','estas','fue','ser','son','hay','tiene','sin','sobre','todo','entre','cuando','muy','bien','puede','hace']);
+      const step = Math.max(1, Math.floor(chunks.length / 40));
+      for (let i = 0; i < chunks.length; i += step) {
+        const text = (chunks[i].content || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const wds = text.match(/\b[a-z]{4,}\b/g) || [];
+        for (const w of wds) { if (!stopWords.has(w)) words[w] = (words[w] || 0) + 1; }
+      }
+      const unique = Object.entries(words).sort((a,b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
+      const chipsDiv = document.getElementById('search-chips');
+      if (!unique.length) { chipsDiv.innerHTML = ''; return; }
+      chipsDiv.innerHTML = '<div class="suggestions-label">Sugerencias</div>' + unique.map(w =>
+        '<span class="chip" onclick="chipClick(this)">' + esc(w) + '</span>'
+      ).join('');
+    }
+
+    function chipClick(el) {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      const word = el.textContent;
+      document.getElementById('search-input').value = word;
+      doSearch({ autoOpenFirst: true, focusWord: word });
+    }
+
+    function populatePageFilter() {
+      let pages = [];
+      if (Object.keys(docWordBoxes).length) {
+        pages = Object.keys(docWordBoxes).map(Number).sort((a, b) => a - b);
+      } else if (docChunks.length) {
+        const s = new Set();
+        docChunks.forEach(c => (c.page_numbers || []).forEach(p => s.add(p)));
+        pages = [...s].sort((a, b) => a - b);
+      }
+      const sel = document.getElementById('filter-pages');
+      sel.innerHTML = '<option value="all">Paginas: Todas</option>' +
+        pages.map(p => '<option value="' + p + '">Pag. ' + (p + 1) + '</option>').join('');
+    }
+
+    // ── SEARCH ──
+    let lastSearchQuery = '';
+    let lastFocusWord = '';
+    let selectedOccurrence = null;
+    let lastOccurrences = [];
+    let lastSearchPageFilter = null;
+    let lastMatchedByPage = {};
+    let sortedPageKeys = [];
+    let pdfPageScales = {};
+    let searchSeq = 0;
+    let searchDebounce = null;
+
+    function normWord(s) {
+      return (s || '').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function compactWord(s) {
+      return normWord(s).replace(/\s+/g, '');
+    }
+
+    function buildWordIndex() {
+      pageBoxMeta = {};
+      pageSortedOrder = {};
+      const keys = Object.keys(docWordBoxes);
+      keys.sort((a, b) => Number(a) - Number(b));
+      for (const pk of keys) {
+        const boxes = docWordBoxes[pk] || [];
+        const meta = boxes.map(b => ({
+          b,
+          n: normWord(b.text),
+          c: compactWord(b.text),
+          pos: 0,
+        }));
+        const order = meta.map((m, i) => i).sort((a, b) => {
+          if (Math.abs(meta[a].b.y - meta[b].b.y) > 10) return meta[a].b.y - meta[b].b.y;
+          return meta[a].b.x - meta[b].b.x;
+        });
+        for (let i = 0; i < order.length; i++) meta[order[i]].pos = i;
+        pageBoxMeta[pk] = meta;
+        pageSortedOrder[pk] = order;
+      }
+      sortedPageKeys = keys;
+    }
+
+    function expandFocusVariants(focusWord) {
+      const raw = normWord(focusWord);
+      const compact = compactWord(focusWord);
+      const tokens = new Set();
+      const phrases = [];
+      const addToken = (t) => { if (t && t.length >= 2) tokens.add(t); };
+      if (raw) {
+        raw.split(' ').filter(Boolean).forEach(addToken);
+        if (raw.split(' ').filter(Boolean).every(w => w.length === 1)) {
+          addToken(raw.replace(/\s+/g, ''));
+        } else {
+          phrases.push(raw.split(' ').filter(Boolean));
+        }
+      }
+      if (compact) addToken(compact);
+
+      for (const g of (synonymGroups || [])) {
+        const forms = [g.canonical, ...(g.variants || [])];
+        const formNorms = forms.map(f => ({
+          n: normWord(f),
+          c: compactWord(f),
+        })).filter(f => f.n || f.c);
+        const hit = formNorms.some(f =>
+          f.n === raw || f.c === compact ||
+          (raw && f.n === raw) ||
+          (compact && f.c === compact)
+        );
+        if (!hit) continue;
+        for (const f of formNorms) {
+          const words = f.n.split(' ').filter(Boolean);
+          if (words.every(w => w.length === 1) && words.length > 1) {
+            addToken(f.c || words.join(''));
+          } else {
+            words.forEach(addToken);
+            if (words.length > 1) phrases.push(words);
+            else if (f.n) phrases.push([f.n]);
+          }
+          if (f.c) addToken(f.c);
+        }
+      }
+      const uniqPhrases = [];
+      const seen = new Set();
+      for (const p of phrases) {
+        const k = p.join(' ');
+        if (!seen.has(k) && k.length >= 2) { seen.add(k); uniqPhrases.push(p); }
+      }
+      uniqPhrases.sort((a, b) => b.length - a.length);
+      let rawRe = null;
+      if (raw && raw.length >= 3) {
+        try { rawRe = new RegExp('\\b' + raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b'); } catch(e) {}
+      }
+      return { tokens, phrases: uniqPhrases, raw, compact, focus: focusWord, rawRe };
+    }
+
+    function boxMatchesMeta(m, variants) {
+      if (!variants || (!m.n && !m.c)) return false;
+      if (variants.tokens.has(m.n) || variants.tokens.has(m.c)) return true;
+      if (variants.compact && variants.compact.length >= 3 && m.c === variants.compact) return true;
+      if (variants.rawRe && variants.rawRe.test(m.n)) return true;
+      for (const t of variants.tokens) {
+        if (!t || t.length < 3) continue;
+        if (m.n === t || m.c === t) return true;
+        if (m.n.includes(' ' + t + ' ')) return true;
+      }
+      return false;
+    }
+
+    function findPhraseIndices(sortedMetas, phraseTokens) {
+      const hits = [];
+      const len = phraseTokens.length;
+      if (!len) return hits;
+      for (let s = 0; s + len <= sortedMetas.length; s++) {
+        let ok = true;
+        for (let k = 0; k < len; k++) {
+          const m = sortedMetas[s + k];
+          const want = compactWord(phraseTokens[k]);
+          const wantN = normWord(phraseTokens[k]);
+          if (m.c !== want && m.n !== wantN && m.c !== wantN) { ok = false; break; }
+        }
+        if (ok) hits.push(s);
+      }
+      return hits;
+    }
+
+    function buildOccContext(pageKey, targetIdx, variants) {
+      const metas = pageBoxMeta[pageKey];
+      if (!metas) return '';
+      const targetMeta = metas[targetIdx];
+      if (!targetMeta) return '';
+      const order = pageSortedOrder[pageKey] || [];
+      const pos = targetMeta.pos;
+      const start = Math.max(0, pos - 8);
+      const end = Math.min(order.length, pos + 9);
+      const phraseSet = new Set();
+      if (variants && variants.phrases && variants.phrases.length) {
+        const sorted = order.map(i => metas[i]);
+        for (const p of variants.phrases) {
+          if (p.length < 2) continue;
+          for (const s of findPhraseIndices(sorted, p)) {
+            for (let k = 0; k < p.length; k++) phraseSet.add(order[s + k]);
+          }
+        }
+      }
+      let html = '';
+      for (let i = start; i < end; i++) {
+        const boxIdx = order[i];
+        const m = metas[boxIdx];
+        if (!m) continue;
+        const piece = (phraseSet.has(boxIdx) || boxMatchesMeta(m, variants))
+          ? '<mark>' + esc(m.b.text) + '</mark>'
+          : esc(m.b.text);
+        html += html ? ' ' + piece : piece;
+      }
+      return html;
+    }
+
+    function findWordOccurrences(variants, pageFilter) {
+      const occs = [];
+      const matchedByPage = {};
+      if (!variants || !variants.raw) return { occs, matchedByPage };
+      const seen = new Set();
+      const keys = sortedPageKeys.length ? sortedPageKeys : Object.keys(pageBoxMeta);
+      for (let ki = 0; ki < keys.length; ki++) {
+        const pk = keys[ki];
+        const pageIdx = Number(pk);
+        if (pageFilter != null && pageIdx !== pageFilter) continue;
+        const metas = pageBoxMeta[pk] || [];
+        const order = pageSortedOrder[pk] || [];
+        const pageMatched = [];
+        matchedByPage[pageIdx] = pageMatched;
+
+        if (variants.phrases.length) {
+          const sorted = order.map(i => metas[i]);
+          for (const phrase of variants.phrases) {
+            if (phrase.length < 2) continue;
+            for (const s of findPhraseIndices(sorted, phrase)) {
+              const boxIndex = order[s];
+              for (let k = 0; k < phrase.length; k++) {
+                const bi = order[s + k];
+                if (pageMatched.indexOf(bi) < 0) pageMatched.push(bi);
+              }
+              const key = pageIdx + ':' + boxIndex;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              occs.push({
+                page: pageIdx,
+                boxIndex,
+                endBoxIndex: order[s + phrase.length - 1],
+                matchedText: phrase.join(' '),
+                pk,
+              });
+            }
+          }
+        }
+
+        for (let i = 0; i < metas.length; i++) {
+          if (pageMatched.indexOf(i) >= 0) continue;
+          if (!boxMatchesMeta(metas[i], variants)) continue;
+          pageMatched.push(i);
+          const key = pageIdx + ':' + i;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          occs.push({
+            page: pageIdx,
+            boxIndex: i,
+            endBoxIndex: i,
+            matchedText: metas[i].b.text,
+            pk,
+          });
+        }
+      }
+      occs.sort((a, b) => a.page - b.page || a.boxIndex - b.boxIndex);
+      return { occs, matchedByPage };
+    }
+
+    function renderOccList(occs, focusWord) {
+      const resultsDiv = document.getElementById('search-results');
+      const variants = lastFocusVariants;
+      const nOcc = occs.length;
+
+      if (!nOcc) {
+        let msg = 'No se encontró «' + esc(focusWord) + '» ni sus variantes en este documento.';
+        let examples = '<div class="empty-examples">Prueba: <span onclick="tryExample(this)">diagnostico</span>, <span onclick="tryExample(this)">dni</span>, <span onclick="tryExample(this)">historia clinica</span></div>';
+        if (docDataStatus === 'loading') {
+          msg = 'Cargando datos del documento... intenta de nuevo en un momento.';
+          examples = '';
+        } else if (docDataStatus === 'error') {
+          msg = 'No se pudieron cargar los fragmentos de este documento.';
+        }
+        resultsDiv.innerHTML =
+          '<div class="empty-search">' +
+          '<div style="font-size:13px;color:var(--text-muted)">' + msg + '</div>' +
+          examples +
+          '<div class="empty-examples" style="margin-top:6px">Los textos manuscritos no siempre son legibles por OCR.</div>' +
+          '<button class="ask-assistant-btn" onclick="askFromSearch()"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>¿No lo encuentras? Preguntale al asistente</button>' +
+          '</div>';
+        return;
+      }
+
+      const forms = {};
+      occs.forEach(o => {
+        const f = o.matchedText || '';
+        forms[f] = (forms[f] || 0) + 1;
+      });
+      const formList = Object.entries(forms).sort((a, b) => b[1] - a[1]);
+      const showOccs = occs.slice(0, 50);
+      const parts = [];
+      if (formList.length > 1) {
+        parts.push('<div class="search-stats" style="margin-bottom:8px">Formas: ' +
+          formList.map(([f, c]) => '«' + esc(f) + '» ' + c).join(' · ') + '</div>');
+      }
+      parts.push(showOccs.map((o, i) => {
+        const ctx = buildOccContext(o.pk, o.boxIndex, variants);
+        return '<div class="occ-item" data-page="' + o.page + '" data-box="' + o.boxIndex + '" onclick="goToOccurrence(' + o.page + ',' + o.boxIndex + ')">' +
+          '<div class="occ-meta">Pagina ' + (o.page + 1) + ' &middot; «' + esc(o.matchedText || focusWord) + '» &middot; ' + (i + 1) + '/' + nOcc + '</div>' +
+          '<div class="occ-context">' + ctx + '</div>' +
+          '<div class="result-actions">' +
+          '<span class="result-action" onclick="event.stopPropagation();goToOccurrence(' + o.page + ',' + o.boxIndex + ')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/></svg>Ver en el PDF</span>' +
+          '</div>' +
+        '</div>';
+      }).join(''));
+      if (nOcc > showOccs.length) {
+        parts.push('<div class="search-stats">y ' + (nOcc - showOccs.length) + ' mas...</div>');
+      }
+      resultsDiv.innerHTML = parts.join('');
+    }
+
+    function onSearchInput() {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => {
+        doSearch({ focusWord: document.getElementById('search-input').value.trim() });
+      }, 280);
+    }
+
+    function doSearch(opts) {
+      const autoOpenFirst = !!(opts && opts.autoOpenFirst);
+      const query = document.getElementById('search-input').value.trim();
+      if (!query || !selectedDocId) return [];
+      lastSearchQuery = query;
+      lastFocusWord = (opts && opts.focusWord) || query;
+      if (!lastFocusWord) lastFocusWord = query;
+      const variants = expandFocusVariants(lastFocusWord);
+      lastFocusVariants = variants;
+
+      const seq = ++searchSeq;
+      selectedOccurrence = null;
+      document.querySelectorAll('.occ-item').forEach(r => r.classList.remove('active'));
+
+      const pageVal = document.getElementById('filter-pages').value;
+      const pageFilter = (pageVal && pageVal !== 'all') ? parseInt(pageVal) : null;
+      lastSearchPageFilter = pageFilter;
+      const hasBoxes = Object.keys(pageBoxMeta).length > 0;
+      const { occs, matchedByPage } = hasBoxes
+        ? findWordOccurrences(variants, pageFilter)
+        : { occs: [], matchedByPage: {} };
+
+      if (seq !== searchSeq) return [];
+      lastMatchedByPage = matchedByPage;
+      if (hasBoxes && occs.length) {
+        highlightFromMatches(matchedByPage, null);
+      } else {
+        clearPdfMarks();
+      }
+
+      lastOccurrences = occs;
+
+      const statsBits = [];
+      if (occs.length) {
+        const nForms = variants.tokens.size;
+        statsBits.push(occs.length + ' aparicion' + (occs.length === 1 ? '' : 'es') +
+          (nForms > 1 ? ' (' + nForms + ' variantes)' : ''));
+      }
+      if (pageFilter != null) {
+        statsBits.push('pagina ' + (pageFilter + 1));
+      }
+      document.getElementById('search-stats').textContent = statsBits.join(' · ');
+
+      renderOccList(occs, lastFocusWord);
+
+      if (autoOpenFirst && occs.length) {
+        goToOccurrence(occs[0].page, occs[0].boxIndex);
+      }
+      return occs;
+    }
+
+    function tryExample(el) {
+      const word = el.textContent;
+      document.getElementById('search-input').value = word;
+      doSearch({ autoOpenFirst: true, focusWord: word });
+    }
+
+    function askFromSearch() {
+      const section = document.getElementById('chat-section');
+      if (section.classList.contains('collapsed')) {
+        section.classList.remove('collapsed');
+        section.classList.add('expanded');
+      }
+      const chatInput = document.getElementById('chat-input');
+      chatInput.value = document.getElementById('search-input').value;
+      chatInput.focus();
+    }
+
+    function goToOccurrence(page, boxIndex) {
+      selectedOccurrence = { page: page, boxIndex: boxIndex };
+      document.querySelectorAll('.occ-item').forEach(r => r.classList.remove('active'));
+      const card = document.querySelector('.occ-item[data-page="' + page + '"][data-box="' + boxIndex + '"]');
+      if (card) card.classList.add('active');
+
+      pdfCurrentPage = page + 1;
+      updatePdfPageIndicator();
+
+      if (pdfZoomLevel < 1.8) {
+        pdfZoomLevel = 1.8;
+        updatePdfZoomLabel();
+        applyPdfZoom();
+      }
+
+      const variants = lastFocusVariants || expandFocusVariants(lastFocusWord);
+      const matchedByPage = lastMatchedByPage && Object.keys(lastMatchedByPage).length
+        ? lastMatchedByPage
+        : findWordOccurrences(variants, lastSearchPageFilter).matchedByPage;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          highlightFromMatches(matchedByPage, selectedOccurrence);
+          centerOnBox(page, boxIndex);
+        });
+      });
+    }
+
+    function centerOnBox(pageIdx, boxIndex) {
+      const boxes = docWordBoxes[String(pageIdx)] || [];
+      const box = boxes[boxIndex];
+      const pageInfo = pdfPageScales[pageIdx + 1];
+      const pageWrap = document.querySelector('.pdf-page-wrapper[data-page="' + (pageIdx + 1) + '"]');
+      const viewer = document.getElementById('pdf-viewer');
+      if (!viewer) return;
+      if (!box || !pageInfo || !pageWrap) {
+        if (pageWrap) pageWrap.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        return;
+      }
+      const DPI = 72 / 200;
+      const z = pdfZoomLevel;
+      const fx = (box.x + box.w / 2) * DPI * pageInfo.scale;
+      const fy = (box.y + box.h / 2) * DPI * pageInfo.scale;
+      const wRect = pageWrap.getBoundingClientRect();
+      const vRect = viewer.getBoundingClientRect();
+      const cx = wRect.left + fx * z;
+      const cy = wRect.top + fy * z;
+      viewer.scrollTo({
+        left: Math.max(0, viewer.scrollLeft + (cx - (vRect.left + vRect.width / 2))),
+        top: Math.max(0, viewer.scrollTop + (cy - (vRect.top + vRect.height / 2))),
+        behavior: 'smooth'
+      });
+    }
+
+    function highlightFromMatches(matchedByPage, selected) {
+      clearPdfMarks();
+      if (!matchedByPage) return;
+      const DPI = 72 / 200;
+
+      for (const pk of Object.keys(pageBoxMeta)) {
+        const pageIdx = Number(pk);
+        const pageMatched = matchedByPage[pageIdx];
+        if (!pageMatched || !pageMatched.length) continue;
+        const boxes = docWordBoxes[pk] || [];
+        const pageNum = pageIdx + 1;
+        const hlCanvas = document.getElementById('hl-canvas-' + pageNum);
+        const pageInfo = pdfPageScales[pageNum];
+        if (!hlCanvas || !pageInfo) continue;
+        const ctx = hlCanvas.getContext('2d');
+        let n = 0;
+        for (let mi = 0; mi < pageMatched.length; mi++) {
+          const i = pageMatched[mi];
+          if (!boxes[i]) continue;
+          const x = boxes[i].x * DPI * pageInfo.scale;
+          const y = boxes[i].y * DPI * pageInfo.scale;
+          const w = boxes[i].w * DPI * pageInfo.scale;
+          const h = boxes[i].h * DPI * pageInfo.scale;
+          const isSel = selected && selected.page === pageIdx && selected.boxIndex === i;
+          ctx.fillStyle = 'rgba(255,140,0,0.5)';
+          ctx.fillRect(x, y, w, h);
+          ctx.strokeStyle = isSel ? 'rgba(255,60,0,1)' : 'rgba(255,80,0,0.9)';
+          ctx.lineWidth = isSel ? 3 : 2;
+          ctx.strokeRect(x, y, w, h);
+          n++;
+        }
+        if (n > 0) {
+          const wrap = hlCanvas.closest('.pdf-page-wrapper');
+          if (wrap) {
+            wrap.classList.add('page-match');
+            const marker = wrap.querySelector('.pdf-page-marker');
+            if (marker) marker.textContent = n === 1 ? '1 aparicion' : n + ' apariciones';
+          }
+        }
+      }
+    }
+
+    function clearPdfMarks() {
+      const overlays = hlCanvasCache.length ? hlCanvasCache : document.querySelectorAll('.pdf-hl-overlay');
+      for (const c of overlays) {
+        if (c && c.getContext) c.getContext('2d').clearRect(0, 0, c.width, c.height);
+      }
+      const wrappers = pageWrapperCache.length ? pageWrapperCache : document.querySelectorAll('.pdf-page-wrapper');
+      for (const w of wrappers) {
+        if (!w || !w.classList) continue;
+        w.classList.remove('page-match');
+        const marker = w.querySelector('.pdf-page-marker');
+        if (marker) marker.textContent = '';
+      }
+    }
+
+    function clearPdfHighlights() {
+      clearPdfMarks();
+      lastSearchQuery = '';
+      lastFocusWord = '';
+      lastFocusVariants = null;
+      selectedOccurrence = null;
+      lastOccurrences = [];
+      lastSearchPageFilter = null;
+      lastMatchedByPage = {};
+    }
+
+    // ── CHAT ──
+    function toggleChat() {
+      const section = document.getElementById('chat-section');
+      const isExpanded = section.classList.contains('expanded');
+      if (isExpanded) {
+        section.classList.remove('expanded');
+        section.classList.add('collapsed');
+      } else {
+        section.classList.remove('collapsed');
+        section.classList.add('expanded');
+        document.getElementById('chat-input').focus();
+      }
+    }
+
+    async function sendQuery() {
+      const input = document.getElementById('chat-input');
+      const q = input.value.trim();
+      if (!q) return;
+      input.value = '';
+
+      const section = document.getElementById('chat-section');
+      if (section.classList.contains('collapsed')) {
+        section.classList.remove('collapsed');
+        section.classList.add('expanded');
+      }
+
+      const now = new Date();
+      const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+      addChatMsg('user', q, time);
+
+      const loadingDiv = addChatMsg('ai', '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>', time);
+
+      const body = {query: q, max_chunks: 10};
+      if (selectedDocId) body.doc_filter = selectedDocId;
+
+      try {
+        const res = await fetch(API + '/api/v1/query', {
+          method: 'POST',
+          headers: {...authHeaders(), 'Content-Type': 'application/json'},
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        let sourcesHtml = '';
+        if (data.sources && data.sources.length > 0) {
+          sourcesHtml = data.sources.map(src =>
+            '<div class="chat-msg-sources"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/></svg>' + esc(src.document_name || '') + ' - Pag. ' + (src.page_numbers || []).join(',') + '</div>'
+          ).join('');
+        }
+        loadingDiv.querySelector('.chat-msg-content').innerHTML = esc(data.answer || data.detail || 'Sin respuesta') + sourcesHtml;
+      } catch(e) {
+        loadingDiv.querySelector('.chat-msg-content').innerHTML = '<span style="color:var(--danger)">Error: ' + esc(e.message) + '</span>';
+      }
+    }
+
+    function addChatMsg(role, content, time) {
+      const div = document.createElement('div');
+      div.className = 'chat-msg ' + (role === 'user' ? 'user-msg' : 'ai-msg');
+      const label = role === 'user' ? 'Usuario' : 'Consulta Medica IA';
+      const avatar = role === 'user' ? 'U' : 'IA';
+      div.innerHTML =
+        '<div class="chat-msg-header"><div style="display:flex;align-items:center"><span class="chat-msg-avatar">' + avatar + '</span><span class="chat-msg-role">' + label + '</span></div><span class="chat-msg-time">' + time + '</span></div>' +
+        '<div class="chat-msg-content">' + (role === 'user' ? esc(content) : content) + '</div>';
+      const container = document.getElementById('chat-messages');
+      container.appendChild(div);
+      while (container.children.length > 50) container.removeChild(container.firstChild);
+      div.scrollIntoView({behavior: 'smooth'});
+      return div;
+    }
+
+    // ── UPLOAD ──
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+
+    uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+    uploadZone.addEventListener('drop', e => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e => {
+      if (e.target.files.length) handleUpload(e.target.files[0]);
+      e.target.value = '';
+    });
+
+    async function handleUpload(file) {
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        showToast('Solo se permiten archivos PDF', 'error');
+        setUploadError('Solo se permiten archivos PDF');
+        return;
+      }
+      if (file.size > 100 * 1024 * 1024) {
+        showToast('Archivo muy grande (maximo 100MB)', 'error');
+        setUploadError('Archivo muy grande (maximo 100MB)');
+        return;
+      }
+
+      const zone = document.getElementById('upload-zone');
+      const progress = document.getElementById('upload-progress');
+      const fill = document.getElementById('progress-fill');
+      const pct = document.getElementById('progress-pct');
+      const fname = document.getElementById('progress-filename');
+      const status = document.getElementById('upload-status');
+      const text = document.getElementById('upload-text');
+      const link = document.getElementById('upload-link');
+
+      // Reset states
+      zone.className = 'upload-zone uploading';
+      zone.onclick = null;
+      text.textContent = 'Subiendo...';
+      link.textContent = '';
+      status.className = 'upload-status show';
+      status.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Subiendo ' + esc(file.name) + '...';
+
+      progress.classList.add('show');
+      fname.textContent = file.name + ' (' + formatSize(file.size) + ')';
+      fill.style.width = '0%';
+      pct.textContent = '0%';
+
+      const form = new FormData();
+      form.append('file', file);
+
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', API + '/api/v1/documents');
+        xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) {
+            const p = Math.round((e.loaded / e.total) * 100);
+            fill.style.width = p + '%';
+            pct.textContent = p + '%';
+            status.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Subiendo... ' + p + '%';
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status === 202 || xhr.status === 200) {
+            fill.style.width = '100%';
+            pct.textContent = '100%';
+            zone.className = 'upload-zone upload-ok';
+            text.textContent = 'PDF subido correctamente';
+            link.textContent = '';
+            status.className = 'upload-status show ok';
+            status.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Enviando a procesar...';
+            showToast('PDF subido. Procesando...', 'success');
+
+            loadDocs();
+            setTimeout(() => { startPolling(); }, 1000);
+
+            let newDocId = null;
+            try { const r = JSON.parse(xhr.responseText); newDocId = r.id || r.document_id; } catch(e) {}
+
+            setTimeout(() => {
+              progress.classList.remove('show');
+              if (newDocId) {
+                selectDoc(newDocId);
+              } else {
+                loadDocs().then(() => {
+                  if (docs.length) selectDoc(docs[0].id);
+                });
+              }
+            }, 1500);
+          } else {
+            let errorMsg = 'Error al subir';
+            try {
+              const err = JSON.parse(xhr.responseText);
+              errorMsg = err.detail || errorMsg;
+            } catch(e) {}
+            if (xhr.status === 409) errorMsg = 'Este PDF ya fue subido anteriormente';
+            else if (xhr.status === 400) errorMsg = 'Archivo no valido. Asegurate de que sea un PDF';
+            else if (xhr.status === 413) errorMsg = 'Archivo muy grande (maximo 100MB)';
+            else if (xhr.status === 500) errorMsg = 'Error del servidor. Intenta de nuevo';
+
+            zone.className = 'upload-zone upload-error';
+            text.textContent = 'Error al subir';
+            link.textContent = 'Intentar de nuevo';
+            status.className = 'upload-status show error';
+            status.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg> ' + esc(errorMsg);
+            showToast(errorMsg, 'error');
+            zone.onclick = () => document.getElementById('file-input').click();
+            setTimeout(() => {
+              zone.className = 'upload-zone';
+              text.textContent = 'Arrastra tu PDF aqui';
+              link.textContent = 'o selecciona un archivo';
+              status.className = 'upload-status';
+              progress.classList.remove('show');
+            }, 5000);
+          }
+        };
+
+        xhr.onerror = () => {
+          zone.className = 'upload-zone upload-error';
+          text.textContent = 'Error de conexion';
+          link.textContent = 'Intentar de nuevo';
+          status.className = 'upload-status show error';
+          status.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg> No se pudo conectar con el servidor';
+          showToast('Error de conexion con el servidor', 'error');
+          zone.onclick = () => document.getElementById('file-input').click();
+          setTimeout(() => {
+            zone.className = 'upload-zone';
+            text.textContent = 'Arrastra tu PDF aqui';
+            link.textContent = 'o selecciona un archivo';
+            status.className = 'upload-status';
+            progress.classList.remove('show');
+          }, 5000);
+        };
+
+        xhr.send(form);
+      } catch(e) {
+        zone.className = 'upload-zone upload-error';
+        text.textContent = 'Error inesperado';
+        link.textContent = 'Intentar de nuevo';
+        status.className = 'upload-status show error';
+        status.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg> ' + esc(e.message);
+        showToast('Error: ' + e.message, 'error');
+        zone.onclick = () => document.getElementById('file-input').click();
+        progress.classList.remove('show');
+      }
+    }
+
+    function setUploadError(msg) {
+      const zone = document.getElementById('upload-zone');
+      const status = document.getElementById('upload-status');
+      zone.className = 'upload-zone upload-error';
+      status.className = 'upload-status show error';
+      status.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg> ' + esc(msg);
+      setTimeout(() => {
+        zone.className = 'upload-zone';
+        status.className = 'upload-status';
+      }, 4000);
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // ── NAV ──
+    function setView(el, view) {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      el.classList.add('active');
+      if (view === 'dashboard') showDashboard();
+    }
+
+    // ── TOAST ──
+    function showToast(msg, type) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + (type || 'info');
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => { toast.classList.add('toast-exit'); setTimeout(() => toast.remove(), 300); }, 3000);
+    }
+
+    // ── UTILS ──
+    function esc(t) { if (!t) return ''; return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    // ── INIT ──
+    const pdfViewerEl = document.getElementById('pdf-viewer');
+    if (pdfViewerEl) {
+      pdfViewerEl.addEventListener('wheel', function(e) {
+        if (!pdfDoc) return;
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const delta = e.deltaY < 0 ? 0.08 : -0.08;
+          pdfZoom(delta);
+        }
+      }, { passive: false });
+    }
+
+    if (token) {
+      fetch(API + '/api/v1/health', {headers: authHeaders()})
+        .then(r => r.json())
+        .then(d => { if (d.status === 'healthy' || d.status === 'degraded') showApp(); else { token = null; localStorage.removeItem('token'); } })
+        .catch(() => { token = null; });
+    }
+  </script>
+</body>
+</html>

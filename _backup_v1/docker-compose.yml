@@ -1,0 +1,180 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: rag_medical
+      POSTGRES_USER: rag_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports: ["5433:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag_user -d rag_medical"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-02-07T23-21-09Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:?set MINIO_PASSWORD in .env}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio_data:/data]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  api:
+    build: .
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000
+    ports: ["8000:8000"]
+    volumes:
+      - ./src:/app/src
+      - ./frontend:/app/frontend:ro
+      - ./models:/models:ro
+      - hf_cache:/home/appuser/.cache/huggingface
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://rag_user:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/rag_medical
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - MINIO_ENDPOINT=minio:9000
+      - HF_HOME=/home/appuser/.cache/huggingface
+      - TRANSFORMERS_CACHE=/home/appuser/.cache/huggingface
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=${MINIO_PASSWORD:?set MINIO_PASSWORD in .env}
+      - MINIO_BUCKET=documents
+      - MINIO_SECURE=false
+      - MEDALPACA_MODEL_PATH=/models/medalpaca-7b-q4_k_m.gguf
+      - BGE_M3_MODEL_NAME=BAAI/bge-m3
+      - RERANKER_MODEL_NAME=BAAI/bge-reranker-v2-m3
+      - SURYA_MODEL_DIR=/models/surya
+      - LLM_N_CTX=4096
+      - LLM_N_THREADS=8
+      - LLM_N_GPU_LAYERS=0
+      - LLM_N_BATCH=512
+      - MAX_PAGES_PER_DOC=100
+      - CHUNK_MAX_TOKENS=512
+      - CHUNK_OVERLAP_TOKENS=50
+      - EMBEDDING_BATCH_SIZE=32
+      - RETRIEVAL_TOP_K=20
+      - RERANK_TOP_K=10
+      - CONTEXT_MAX_TOKENS=2500
+      - SECRET_KEY=${SECRET_KEY:?set SECRET_KEY in .env}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-false}
+      - DEV_AUTH_BYPASS=${DEV_AUTH_BYPASS:-true}
+      - LLM_ENABLED=${LLM_ENABLED:-false}
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  worker-ingestion:
+    build: .
+    entrypoint: ["/app/entrypoint.sh"]
+    command: celery -A src.workers.celery_app worker -Q ingestion -c 1 --loglevel=info
+    mem_limit: 4g
+    volumes:
+      - ./src:/app/src
+      - ./models:/models:ro
+      - hf_cache:/home/appuser/.cache/huggingface
+      - paddle_cache:/home/appuser/.paddleocr
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://rag_user:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/rag_medical
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - MINIO_ENDPOINT=minio:9000
+      - HF_HOME=/home/appuser/.cache/huggingface
+      - TRANSFORMERS_CACHE=/home/appuser/.cache/huggingface
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=${MINIO_PASSWORD:?set MINIO_PASSWORD in .env}
+      - MINIO_BUCKET=documents
+      - MINIO_SECURE=false
+      - MEDALPACA_MODEL_PATH=/models/medalpaca-7b-q4_k_m.gguf
+      - BGE_M3_MODEL_NAME=BAAI/bge-m3
+      - RERANKER_MODEL_NAME=BAAI/bge-reranker-v2-m3
+      - SURYA_MODEL_DIR=/models/surya
+      - SECRET_KEY=${SECRET_KEY:?set SECRET_KEY in .env}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-false}
+      - DEV_AUTH_BYPASS=${DEV_AUTH_BYPASS:-true}
+      - LOG_LEVEL=INFO
+    depends_on: [postgres, redis, minio]
+
+  worker-embeddings:
+    build: .
+    command: celery -A src.workers.celery_app worker -Q embeddings -c 1 --loglevel=info
+    volumes:
+      - ./src:/app/src
+      - ./models:/models:ro
+      - hf_cache:/home/appuser/.cache/huggingface
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://rag_user:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/rag_medical
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - MINIO_ENDPOINT=minio:9000
+      - HF_HOME=/home/appuser/.cache/huggingface
+      - TRANSFORMERS_CACHE=/home/appuser/.cache/huggingface
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=${MINIO_PASSWORD:?set MINIO_PASSWORD in .env}
+      - MINIO_BUCKET=documents
+      - MINIO_SECURE=false
+      - MEDALPACA_MODEL_PATH=/models/medalpaca-7b-q4_k_m.gguf
+      - BGE_M3_MODEL_NAME=BAAI/bge-m3
+      - RERANKER_MODEL_NAME=BAAI/bge-reranker-v2-m3
+      - SURYA_MODEL_DIR=/models/surya
+      - SECRET_KEY=${SECRET_KEY:?set SECRET_KEY in .env}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-false}
+      - DEV_AUTH_BYPASS=${DEV_AUTH_BYPASS:-true}
+      - LOG_LEVEL=INFO
+    depends_on: [postgres, redis]
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports: ["9090:9090"]
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports: ["3000:3000"]
+    volumes:
+      - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    depends_on: [prometheus]
+
+volumes:
+  hf_cache:
+  postgres_data:
+  redis_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+  paddle_cache:
