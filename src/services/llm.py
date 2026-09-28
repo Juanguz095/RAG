@@ -23,6 +23,7 @@ SYSTEM_PROMPT = (
 
 def _find_model() -> str:
     candidates = [
+        settings.LLM_MODEL_PATH,
         settings.QWEN_MODEL_PATH,
         os.path.join(settings.MODEL_DIR, "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"),
     ]

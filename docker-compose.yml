@@ -51,6 +51,8 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - AUTH_REQUIRED=${AUTH_REQUIRED:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-BAAI/bge-m3}
+      - OCR_ENGINE=${OCR_ENGINE:-tesseract}
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
@@ -60,7 +62,7 @@ services:
     build: .
     image: rag-api:latest
     command: celery -A src.workers.celery_app worker -Q ingest,celery -c 1 --loglevel=info
-    mem_limit: 3g
+    mem_limit: 4.5g
     volumes:
       - ./src:/app/src
       - ./models:/models:ro
@@ -75,6 +77,9 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - AUTH_REQUIRED=false
       - WORKER_QUEUES=ingest,celery
+      - OCR_ENGINE=${OCR_ENGINE:-tesseract}
+      - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      - RERANK_MODEL_NAME=${RERANK_MODEL_NAME:-BAAI/bge-reranker-base}
     depends_on: [redis, postgres, minio]
 
   # Separate queue: LLM extract must never block new uploads (OCR/embeddings)

@@ -72,7 +72,7 @@ class Chunk(Base):
     bbox = Column(JSONB)
     token_count = Column(Integer)
     chunk_metadata = Column(JSONB, default=dict)
-    embedding = Column(Vector(384))
+    embedding = Column(Vector(1024))
     created_at = Column(DateTime, default=datetime.utcnow)
 
     document = relationship("Document", back_populates="chunks")

@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_user
+from src.config import get_settings
 from src.database import User, get_db
 from src.schemas.query import (
     ChunkResult,
@@ -25,6 +26,7 @@ from src.services.retrieval import hybrid_search
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["query"])
+settings = get_settings()
 
 
 def _make_snippet(content: str, matched_terms: list[str], radius: int = 120) -> str:
@@ -70,24 +72,48 @@ async def query_rag(
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(get_current_user),
 ):
-    t0 = time.time()
+    from src.services import reranker as rerank_svc
+
+    t_total = time.time()
     doc_filter = str(req.doc_filter) if req.doc_filter else None
+
+    # Retrival amplio: pool de candidatos para el re-ranking
+    t0 = time.time()
     results = await hybrid_search(req.query, db, top_k=req.max_chunks, doc_filter=doc_filter)
+    retrieval_ms = (time.time() - t0) * 1000
+
     if not results:
+        total_ms = (time.time() - t_total) * 1000
         return QueryResponse(
             answer="No encontre fragmentos relevantes para esa consulta.",
             sources=[],
             query=req.query,
-            processing_time_ms=round((time.time() - t0) * 1000, 1),
+            processing_time_ms=round(total_ms, 1),
+            retrieval_ms=round(retrieval_ms, 1),
+            rerank_ms=0.0,
+            llm_ms=0.0,
+            total_ms=round(total_ms, 1),
         )
+
+    # Re-ranking cross-encoder (queda con RERANK_TOP_K de la config)
+    t0 = time.time()
+    results = rerank_svc.rerank(req.query, results, top_k=max(1, settings.RERANK_TOP_K))
+    rerank_ms = (time.time() - t0) * 1000
+
     context = build_context(results)
+    t0 = time.time()
     answer = generate_answer(context, req.query)
-    elapsed = (time.time() - t0) * 1000
+    llm_ms = (time.time() - t0) * 1000
+    total_ms = (time.time() - t_total) * 1000
     return QueryResponse(
         answer=answer,
         sources=_results_to_sources(results),
         query=req.query,
-        processing_time_ms=round(elapsed, 1),
+        processing_time_ms=round(total_ms, 1),
+        retrieval_ms=round(retrieval_ms, 1),
+        rerank_ms=round(rerank_ms, 1),
+        llm_ms=round(llm_ms, 1),
+        total_ms=round(total_ms, 1),
     )
 
 

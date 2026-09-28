@@ -66,6 +66,13 @@ def preload():
     logger.info("Embeddings preloaded and ready")
 
 
+def embedding_dimension() -> int:
+    """Dimensión real del modelo cargado (384 MiniLM / 1024 BGE-M3, etc.)."""
+    model = _get_model()
+    dim = model.get_sentence_embedding_dimension()
+    return int(dim)
+
+
 def encode_texts(texts: list[str], batch_size: int = 32) -> np.ndarray:
     if not texts:
         return np.array([])

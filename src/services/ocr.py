@@ -16,6 +16,36 @@ logger = logging.getLogger(__name__)
 OCR_DPI = 200
 
 
+# ── Fase 1 (PLAN-001): OCR en cascada con motores seleccionables ─────
+
+
+def detect_and_fix_rotation(img_or_arr):
+    """Clasifica el ángulo de una página (0/90/180/270) y corrige la imagen.
+
+    Usa el clasificador de PaddleOCR si está disponible; con Tesseract
+    entra por OSD (orientation and script detection). Devuelve el ángulo
+    detectado y la imagen ya rotada a orientación correcta.
+    """
+    import numpy as np
+
+    if isinstance(img_or_arr, Image.Image):
+        arr = np.array(img_or_arr.convert("L"))
+    else:
+        arr = img_or_arr
+
+    # intento 1: OLED/OSD de tesseract (rápido, sin cargar Paddle)
+    try:
+        import pytesseract
+
+        osd = pytesseract.image_to_osd(Image.fromarray(arr), output_type=pytesseract.Output.DICT)
+        angle = int(osd.get("rotate", 0)) % 360
+    except Exception:
+        angle = 0
+    if angle:
+        arr = np.rot90(arr, k=angle // 90)
+    return angle, Image.fromarray(arr)
+
+
 def extract_text_pymupdf(pdf_bytes: bytes) -> dict[int, str]:
     doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
     pages = {}
@@ -28,13 +58,19 @@ def extract_text_pymupdf(pdf_bytes: bytes) -> dict[int, str]:
 
 
 def _render_page(doc: pymupdf.Document, page_idx: int, dpi: int = OCR_DPI) -> Image.Image:
+    """Renderiza a RGB (tinta azul preservada para motores ML).
+
+    Tesseract trabaja mejor con binarización; PaddleOCR y otros motores ML
+    rinden mejor con la imagen RGB original (PLAN-001 §5 Fase 1: la tinta
+    azul de los campos manuscritos pierde contraste con la binarización).
+    Cada adaptador decide su preprocesado; el binarizado Tesseract ahora es
+    perezoso (lazy), hecho dentro de _tesseract_page.
+    """
     page = doc.load_page(page_idx)
     zoom = dpi / 72.0
     mat = pymupdf.Matrix(zoom, zoom)
     pix = page.get_pixmap(matrix=mat)
     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-    img = img.convert("L")
-    img = img.point(lambda x: 0 if x < 140 else 255, mode="1")
     return img
 
 
@@ -52,11 +88,21 @@ def _restore_ocr_env(old: dict, keys) -> None:
             os.environ[k] = old[k]
 
 
-def _tesseract_page(img: Image.Image) -> tuple[str, list[dict]]:
+def _tesseract_page(img) -> tuple[str, list[dict]]:
+    import numpy as np
     import pytesseract
 
+    if not isinstance(img, Image.Image):
+        img = Image.fromarray(np.asarray(img))
+    from PIL import Image as PILImage
+
+    # Binarización lazy: solo Tesseract la necesita (con Paddle/ML perjudica)
+    if img.mode not in ("1", "L"):
+        gray = img.convert("L").point(lambda x: 0 if x < 140 else 255, mode="1")
+    else:
+        gray = img
     data = pytesseract.image_to_data(
-        img,
+        gray,
         lang="spa+eng",
         config="--psm 3 --oem 1 --dpi 200",
         output_type=pytesseract.Output.DICT,
@@ -75,6 +121,70 @@ def _tesseract_page(img: Image.Image) -> tuple[str, list[dict]]:
             })
             text_parts.append(w)
     return " ".join(text_parts), words
+
+
+def _paddle_page(img: Image.Image) -> tuple[str, list[dict]]:
+    """Adaptador PaddleOCR (PP-OCRv4): OCR con boxes → formato word_boxes.
+
+    Conversión de coordenadas: PaddleOCR devuelve (4 esquinas, escala imagen
+    original). _render_page produce PIL en modo "L" escalado al DPI indicado
+    (200 DPI). El contrato word_boxes exige 200 DPI.
+    """
+    from paddleocr import PaddleOCR
+
+    global _paddle_instance  # noqa: F824
+    if _paddle_instance is None:
+        _paddle_instance = PaddleOCR(
+            use_angle_cls=True,  # la cascade necesita clasificador de ángulo
+            lang="es",
+            show_log=False,
+        )
+    import numpy as np
+
+    arr = np.array(img.convert("RGB"))
+    result = _paddle_instance.ocr(arr, cls=True)
+    words = []
+    text_parts = []
+    if result and result[0]:
+        for line in result[0]:
+            box, (text, conf) = box_line = line
+            if not text or conf is None or float(conf) < 0.4:
+                continue
+            xs = [p[0] for p in box]
+            ys = [p[1] for p in box]
+            x0, y0 = int(min(xs)), int(min(ys))
+            x1, y1 = int(max(xs)), int(max(ys))
+            words.append({
+                "text": str(text).strip(),
+                "x": x0,
+                "y": y0,
+                "w": max(1, x1 - x0),
+                "h": max(1, y1 - y0),
+            })
+            text_parts.append(str(text).strip())
+    return " ".join(text_parts), words
+
+
+_paddle_instance = None
+
+
+def _ocr_page_dispatch(img: Image.Image) -> tuple[str, list[dict]]:
+    """Cascada: motor configurado → si falla o vacío, fallback Tesseract."""
+    from src.config import get_settings
+
+    engine = (get_settings().OCR_ENGINE or "tesseract").lower()
+    try:
+        if engine == "paddle":
+            text, words = _paddle_page(img)
+            if text.strip():
+                return text, words
+            logger.info("Paddle devolvió vacío; fallback a Tesseract")
+        elif engine == "surya":
+            # Surya no implementado: espacio reservado para el adaptador
+            logger.warning("OCR_ENGINE=surya no implementado; usando Tesseract")
+    except Exception as e:
+        logger.warning(f"OCR motor '{engine}' falló: {e}; fallback a Tesseract")
+    return _tesseract_page(img)
 
 
 def _render_worker(
@@ -129,7 +239,11 @@ def ocr_empty_pages_iter(
             if err is not None:
                 raise err
             try:
-                text, words = _tesseract_page(img)
+                # Detección y corrección de rotación antes de OCR: la página
+                # invertida del benchmark (page.rotation==0 pero 180° físico)
+                # requiere clasificador propio, no los metadatos del PDF.
+                angle, fixed = detect_and_fix_rotation(img)
+                text, words = _ocr_page_dispatch(fixed)
                 done += 1
                 yield idx, text, words
             finally:

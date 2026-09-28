@@ -27,7 +27,16 @@ class Settings(BaseSettings):
 
     MODEL_DIR: str = "/models"
     QWEN_MODEL_PATH: str = ""
+    LLM_MODEL_PATH: str = os.getenv("LLM_MODEL_PATH", "")
     EMBED_MODEL_NAME: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+    # ── OCR en cascada (PLAN-001 Fase 1) ──
+    OCR_ENGINE: str = os.getenv("OCR_ENGINE", "tesseract")  # tesseract|paddle|surya
+    OCR_DPI: int = 200
+    OCR_MAX_PAGES_PADDLE: int = 0  # 0 = sin límite
+
+    # ── Re-ranking (PLAN-001 Fase 3) ──
+    RERANK_MODEL_NAME: str = "BAAI/bge-reranker-base"
 
     LLM_N_CTX: int = 4096
     LLM_N_THREADS: int = 4

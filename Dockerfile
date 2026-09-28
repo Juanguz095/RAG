@@ -26,7 +26,6 @@ RUN pip install --no-cache-dir \
        "sentence-transformers==3.1.1" \
        llama-cpp-python \
     && pip cache purge
-
 FROM python:3.11-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

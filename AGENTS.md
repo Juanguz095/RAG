@@ -21,8 +21,8 @@ El sistema tiene dos flujos principales:
 - **Backend:** Python, FastAPI, SQLAlchemy 2 (async) + asyncpg.
 - **Base de datos:** PostgreSQL con pgvector (búsqueda vectorial, índice HNSW) y pg_trgm (búsqueda por texto). Migraciones con Alembic.
 - **Procesamiento en background:** Celery + Redis.
-- **IA local:** sentence-transformers (MiniLM, 384-d) para embeddings; llama-cpp-python + TinyLlama GGUF para generación de texto. Los modelos viven en `models/` (no se commitean).
-- **OCR:** PyMuPDF + Tesseract.
+- **IA local:** sentence-transformers con **BGE-M3 (1024-d)** para embeddings (rollback instantáneo a MiniLM 384-d por `EMBED_MODEL_NAME`); **re-ranking con `bge-reranker-base`** (cross-encoder, devuelve `rerank_ms` en cada query); llama-cpp-python + TinyLlama GGUF para generación de texto (`LLM_MODEL_PATH` permite MedAlpaca-7B en equipos con ≥16 GB RAM). Los modelos viven en `models/` y el cache de HuggingFace se monta en `hf_cache/` (no se commitean).
+- **OCR (cascada, `OCR_ENGINE`):** PyMuPDF (texto nativo) → motor ML (`paddle` con clasificador de ángulo + corrección de rotación; registre `OCR_ENGINE=paddle` + `pip install "paddleocr>=2.7,<3" "paddlepaddle>=2.6"`) → **fallback automático Tesseract** (`OCR_ENGINE=tesseract`, default en esta máquina por velocidad: 1.9 s/página vs 27-156 s/página de Paddle en CPU).
 - **Frontend:** una SPA en un solo archivo, `frontend/index.html` (JavaScript vanilla, visor PDF.js). Sin framework ni paso de build.
 - **Despliegue:** Docker + docker-compose (Postgres, Redis, MinIO, API y workers).
 

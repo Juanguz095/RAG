@@ -31,6 +31,10 @@ class QueryResponse(BaseModel):
     sources: list[ChunkResult]
     query: str
     processing_time_ms: float
+    retrieval_ms: float = 0.0
+    rerank_ms: float = 0.0
+    llm_ms: float = 0.0
+    total_ms: float = 0.0
 
 
 class SearchRequest(BaseModel):
