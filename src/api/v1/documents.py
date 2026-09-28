@@ -64,8 +64,19 @@ async def upload_document(
     pdf_path = UPLOAD_DIR / f"{file_hash}.pdf"
     pdf_path.write_bytes(content)
 
+    # Encolado con compensación: si la cola (Redis/Celery) está caída, no deja
+    # ni documento huérfano ni PDF remanente (contrato PLAN-002 C4).
     from src.workers.ingestion_tasks import enqueue_process_document
-    enqueue_process_document(str(doc.id), str(pdf_path))
+    try:
+        enqueue_process_document(str(doc.id), str(pdf_path))
+    except Exception as exc:
+        logger.error(f"Enqueue failed for {doc.id}: {exc}")
+        await db.rollback()
+        pdf_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Processing queue unavailable, try again later",
+        ) from exc
 
     return {"id": str(doc.id), "status": "processing", "message": "Document uploaded, processing in background"}
 
