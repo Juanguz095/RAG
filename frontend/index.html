@@ -331,6 +331,10 @@
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
             Dashboard
           </div>
+          <div class="nav-item" onclick="setView(this,'bsc')">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2v10h-2zm6 0h2v7h-2zM5 7h2v13H5zM3 21V3h2v16h16v2z"/></svg>
+            BSC
+          </div>
           <div class="nav-item" onclick="setView(this,'historial')">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
             Historial
@@ -1731,6 +1735,7 @@
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       el.classList.add('active');
       if (view === 'dashboard') showDashboard();
+      if (view === 'bsc') { el.classList.remove('active'); window.open('/bsc.html', '_blank'); }
     }
 
     // ── TOAST ──

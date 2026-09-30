@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RAG INTELLIGENCE BSC — Del documento a la decisión</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2331; --border: #2d3748;
+    --fg: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --amber: #d29922; --red: #f85149; --gray: #6e7681;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--fg);
+  }
+  header {
+    padding: 18px 28px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: .5px; }
+  header .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  header .actions { display: flex; gap: 10px; }
+  button {
+    background: var(--panel2); color: var(--fg); border: 1px solid var(--border);
+    padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: #1f6feb; border-color: #1f6feb; }
+  main { padding: 20px 28px; }
+
+  #login-card {
+    max-width: 380px; margin: 60px auto; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 10px; padding: 26px;
+  }
+  #login-card h2 { margin-top: 0; font-size: 16px; }
+  #login-card input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--fg); padding: 9px 11px; border-radius: 6px; margin: 7px 0 13px;
+  }
+
+  .row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 1100px) { .row4 { grid-template-columns: repeat(2, 1fr); } }
+
+  .perspective {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .perspective h3 {
+    margin: 0 0 10px; font-size: 13px; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--accent);
+  }
+  .kpi {
+    display: grid; grid-template-columns: 1fr auto auto auto;
+    gap: 8px; align-items: center;
+    padding: 8px 10px; margin: 6px 0; border-radius: 6px;
+    background: var(--panel2); border-left: 3px solid var(--gray);
+    font-size: 13px;
+  }
+  .kpi.green { border-left-color: var(--green); }
+  .kpi.amber { border-left-color: var(--amber); }
+  .kpi.red   { border-left-color: var(--red); }
+  .kpi .val  { font-weight: 600; text-align: right; min-width: 70px; }
+  .kpi .meta { color: var(--muted); font-size: 11px; }
+  .kpi .emo  { font-size: 16px; }
+
+  .section {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px; margin-top: 18px;
+  }
+  .section h2 { margin: 0 0 12px; font-size: 15px; }
+  .section .formula {
+    font-family: ui-monospace, monospace; font-size: 11px;
+    color: var(--muted); background: var(--bg);
+    padding: 8px 10px; border-radius: 6px; margin-top: 10px; white-space: pre-wrap;
+  }
+
+  .heatmap { overflow-x: auto; }
+  table { border-collapse: collapse; font-size: 12px; width: 100%; }
+  th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: center; }
+  th { background: var(--panel2); color: var(--muted); font-weight: 600; }
+  td.rowhead { text-align: left; font-weight: 600; white-space: nowrap; }
+  td.h1 { background: #2ea04355; }
+  td.h2 { background: #f0883e77; }
+  td.h3 { background: #f8514999; }
+  td.h0 { background: #21262d; color: var(--muted); }
+
+  .gap-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: var(--panel2); border: 1px solid var(--red);
+    color: var(--fg); padding: 4px 10px; border-radius: 12px; font-size: 12px;
+  }
+  .chip.emj { border-color: var(--accent); }
+
+  table.plain th { text-align: left; }
+  select, input[type="text"], input[type="date"] {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--fg); padding: 7px 10px; border-radius: 6px; font-size: 13px;
+  }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>RAG INTELLIGENCE BSC</h1>
+    <div class="sub">Del documento a la decisión — indicadores locales, sin nube</div>
+  </div>
+  <div class="actions">
+    <button onclick="loadAll()">🔄 Refrescar</button>
+    <button class="primary" onclick="computeAll(false)">⚙️ Recalcular KPIs</button>
+    <a href="#" id="pdf-link" onclick="downloadReport('pdf');return false"><button>📄 PDF</button></a>
+    <a href="#" id="xlsx-link" onclick="downloadReport('xlsx');return false"><button>📊 XLSX</button></a>
+    <button onclick="logout()">Salir</button>
+  </div>
+</header>
+
+<div id="login-card">
+  <h2>Acceso al tablero</h2>
+  <label for="username">Usuario</label>
+  <input id="username" value="admin" />
+  <label for="password">Contraseña</label>
+  <input id="password" type="password" />
+  <div class="toolbar" style="margin-top:14px">
+    <button class="primary" style="width:100%" onclick="login()">Ingresar</button>
+  </div>
+  <div id="login-err" style="color:var(--red);font-size:12px;margin-top:8px"></div>
+</div>
+
+<main id="dash" style="display:none">
+  <div class="row4" id="perspectives"></div>
+
+  <div class="section">
+    <h2>Score global ejecutivo <span id="score-state"></span></h2>
+    <div style="display:flex;align-items:baseline;gap:14px">
+      <span id="score-val" style="font-size:44px;font-weight:700"></span>
+      <span style="color:var(--muted)">/ 100</span>
+    </div>
+    <div class="formula" id="score-formula"></div>
+    <div style="color:var(--muted);font-size:11px;margin-top:6px">
+      Indicador de gestión con fórmula configurable — NO es probabilidad de que las respuestas de la IA sean verdaderas.
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Consultas RAG (con/sin evidencia)</h2>
+    <div id="queries-metrics" style="font-size:14px;line-height:1.9"></div>
+  </div>
+
+  <div class="section">
+    <h2>Heatmap documento × palabra clave (frecuencia)</h2>
+    <div class="heatmap"><table id="heatmap-table"></table></div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">
+      🟩 ≥5 · 🟨 2-4 · 🟥 1 · ⬛ 0 — celda = apariciones del keyword en el documento.
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Brechas de conocimiento (keywords sin evidencia)</h2>
+    <div class="gap-list" id="gap-chips"></div>
+  </div>
+
+  <div class="section">
+    <h2>Conceptos emergentes (frecuentes, fuera del catálogo)</h2>
+    <div class="gap-list" id="emergent-chips"></div>
+  </div>
+
+  <div class="section">
+    <h2>Plan de acción</h2>
+    <div class="toolbar">
+      <input type="text" id="plan-title" placeholder="Título del plan" style="flex:1;min-width:220px" />
+      <select id="plan-kpi"><option value="">— KPI (opcional) —</option></select>
+      <input type="text" id="plan-owner" placeholder="Responsable" style="width:150px" />
+      <button class="primary" onclick="createPlan()">➕ Registrar</button>
+    </div>
+    <table class="plain" id="plans-table">
+      <thead><tr><th>Título</th><th>KPI</th><th> Responsable</th><th>Estado</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+const API = '';
+let T = localStorage.getItem('token');
+
+function hdrs() {
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + T };
+}
+async function jf(url, opts = {}) {
+  const r = await fetch(url, { headers: hdrs(), ...opts });
+  if (r.status === 401) { showLogin(); throw new Error('401'); }
+  if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 120));
+  return r.json();
+}
+async function downloadReport(ext) {
+  try {
+    const r = await fetch(API + '/api/v1/bsc/report.' + ext, { headers: hdrs() });
+    if (!r.ok) throw new Error(r.status);
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'reporte_bsc.' + ext;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) { alert('No se pudo descargar el reporte: ' + e.message); }
+}
+
+async function login() {
+  const r = await fetch(API + '/api/v1/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: document.getElementById('username').value, password: document.getElementById('password').value }),
+  });
+  if (r.status === 200) {
+    const d = await r.json();
+    T = d.access_token; localStorage.setItem('token', T);
+    showDash();
+  } else {
+    document.getElementById('login-err').textContent = 'Credenciales inválidas o acceso denegado (' + r.status + ')';
+  }
+}
+function logout() { localStorage.removeItem('token'); location.reload(); }
+function showLogin() { document.getElementById('login-card').style.display = ''; document.getElementById('dash').style.display = 'none'; }
+function showDash() { document.getElementById('login-card').style.display = 'none'; document.getElementById('dash').style.display = ''; loadAll(); }
+
+const PERSP = [
+  { key: 'conocimiento', title: 'P1 · Conocimiento Documental' },
+  { key: 'rag', title: 'P2 · Inteligencia RAG' },
+  { key: 'usuario', title: 'P3 · Usuario y Servicio' },
+  { key: 'seguridad', title: 'P4 · Seguridad y Gobierno' },
+];
+
+let KPIS = [];
+
+async function loadAll() {
+  try { /* links ahora blob-download con auth */ } catch {}
+  await Promise.all([loadKpis(), loadGaps(), loadQueries(), loadScore(), loadPlans()]);
+  render();
+}
+async function loadKpis() {
+  try { KPIS = (await jf(API + '/api/v1/bsc/kpis')).items; } catch { KPIS = []; }
+}
+async function loadGaps() {
+  try { window.GAPS = await jf(API + '/api/v1/bsc/gaps'); } catch { window.GAPS = {}; }
+}
+async function loadQueries() {
+  try {
+    const kpis = KPIS;
+    window.QM = kpis.filter(k => k.code === 'QUERY_TOTAL' || k.code === 'QUERY_WITH_EVIDENCE' || k.code === 'QUERY_NO_EVIDENCE');
+  } catch { window.QM = []; }
+}
+async function loadScore() {
+  try { window.SCORE = await jf(API + '/api/v1/bsc/score'); } catch { window.SCORE = {}; }
+}
+async function loadPlans() {
+  try { window.PLANS = (await jf(API + '/api/v1/bsc/action-plans')).items; } catch { window.PLANS = []; }
+}
+
+async function computeAll() {
+  const codes = KPIS.map(k => k.code);
+  for (const code of codes) {
+    try { await fetch(API + '/api/v1/bsc/kpis/' + code + '/compute', { method: 'POST', headers: hdrs(), body: '{}' }); } catch {}
+  }
+  await loadAll();
+}
+
+async function createPlan() {
+  const title = document.getElementById('plan-title').value;
+  if (!title) return;
+  const kpiCode = document.getElementById('plan-kpi').value;
+  const body = {
+    title,
+    owner: document.getElementById('plan-owner').value || null,
+    kpi_code: kpiCode || null,
+  };
+  await fetch(API + '/api/v1/bsc/action-plans', { method: 'POST', headers: hdrs(), body: JSON.stringify(body) });
+  document.getElementById('plan-title').value = '';
+  loadPlans();
+}
+
+async function advancePlan(id, status) {
+  await fetch(API + '/api/v1/bsc/action-plans/' + id, { method: 'PATCH', headers: hdrs(), body: JSON.stringify({ status }) });
+  loadPlans();
+}
+
+function render() {
+  // perspectives
+  const el = document.getElementById('perspectives');
+  el.innerHTML = '';
+  for (const p of PERSP) {
+    const items = KPIS.filter(k => k.perspective === p.key);
+    const div = document.createElement('div');
+    div.className = 'perspective';
+    div.innerHTML = '<h3>' + p.title + '</h3>';
+    for (const k of items) {
+      const row = document.createElement('div');
+      row.className = 'kpi ' + (k.state || 'gray');
+      row.innerHTML =
+        '<div><div>' + k.name + '</div><div class="meta">' + (k.computed_at ? 'calc. ' + k.computed_at.slice(0, 16) : 'sin calcular') + '</div></div>' +
+        '<div class="val">' + (k.last_value != null ? k.last_value : '·') + (k.unit === '%' ? '%' : '') + '</div>' +
+        '<div class="meta">' + (k.target != null ? 'meta ' + k.target + k.unit : '') + '</div>' +
+        '<div class="emo">' + (k.emoji || '⚪') + '</div>';
+      div.appendChild(row);
+      const sel = document.getElementById('plan-kpi');
+      if (![...sel.options].some(o => o.value === k.code)) {
+        const op = document.createElement('option'); op.value = k.code; op.textContent = k.code; sel.appendChild(op);
+      }
+    }
+    el.appendChild(div);
+  }
+  // queries
+  const q = document.getElementById('queries-metrics');
+  (window.QM || []).forEach(k => {
+    q.innerHTML += '<div>' + (k.emoji || '') + ' <b>' + k.name + ':</b> ' + (k.last_value != null ? k.last_value : '·') + ' ' + (k.unit || '') + '</div>';
+  });
+  // score
+  const sv = window.SCORE || {};
+  document.getElementById('score-val').textContent = sv.value != null ? sv.value : '·';
+  document.getElementById('score-formula').textContent = sv.formula || '';
+  document.getElementById('score-state').textContent = (sv.value >= 80) ? '🟢' : (sv.value >= 60 ? '🟡' : '🔴');
+  // gaps
+  document.getElementById('gap-chips').innerHTML = ((window.GAPS || {}).brechas || []).slice(0, 40).map(t => '<span class="chip">' + t + '</span>').join('');
+  document.getElementById('emergent-chips').innerHTML = ((window.GAPS || {}).emergentes || []).map(t => '<span class="chip emj">' + t + '</span>').join('');
+  // heatmap
+  const hm = (window.GAPS || {}).heatmap || [];
+  const terms = [...new Set(hm.flatMap(r => Object.keys(r).filter(key => key !== 'document' && key !== 'document_id')))];
+  const t = document.getElementById('heatmap-table');
+  let h = '<thead><tr><th>Documento</th>' + terms.map(x => '<th>' + x + '</th>').join('') + '</tr></thead><tbody>';
+  for (const row of hm) {
+    h += '<tr><td class="rowhead">' + row.document + '</td>';
+    for (const term of terms) {
+      const v = row[term] || 0;
+      const cls = v >= 5 ? 'h1' : v >= 2 ? 'h2' : v === 1 ? 'h3' : 'h0';
+      h += '<td class="' + cls + '">' + v + '</td>';
+    }
+    h += '</tr>';
+  }
+  h += '</tbody>';
+  t.innerHTML = h;
+  // plans
+  const pb = document.querySelector('#plans-table tbody');
+  pb.innerHTML = '';
+  (window.PLANS || []).forEach(plan => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + plan.title + '</td><td>' + (plan.kpi_id ? plan.kpi_id.slice(0, 8) : '—') + '</td><td>' + (plan.owner || '—') + '</td><td><select onchange="advancePlan(\'' + plan.id + '\', this.value)">' +
+      ['open', 'in_progress', 'done', 'cancelled'].map(s => '<option ' + (s === plan.status ? 'selected' : '') + '>' + s + '</option>').join('') + '</select></td>';
+    pb.appendChild(tr);
+  });
+}
+
+if (localStorage.getItem('token')) { T = localStorage.getItem('token'); showDash(); }
+else showLogin();
+</script>
+</body>
+</html>
