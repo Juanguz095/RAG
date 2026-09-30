@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir \
        "asyncpg>=0.29" "pgvector>=0.3" "pydantic-settings>=2.0" \
        python-multipart "redis>=5.0" "celery>=5.4" "minio>=7.2" \
        "alembic>=1.13" "pymupdf>=1.24" "pillow>=10.0" "tiktoken>=0.7" \
-       "PyJWT>=2.8" httpx python-dotenv psycopg2-binary \
+       "PyJWT>=2.8" httpx python-dotenv psycopg "reportlab>=4.0" "openpyxl>=3.1" \
        pytesseract
 
 # Install ML deps with pinned compatible versions

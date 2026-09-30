@@ -130,6 +130,75 @@ class DocumentACL(Base):
     role = Column(String(20), primary_key=True)
 
 
+# ------------------------------------------------------------------ BSC (PLAN-005)
+
+class Kpi(Base):
+    """KPI del Balanced Scorecard (RAG-042..049, PLAN-005)."""
+
+    __tablename__ = "kpis"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code = Column(String(30), nullable=False, unique=True)
+    name = Column(String(200), nullable=False)
+    perspective = Column(
+        String(20), nullable=False,
+    )
+    # perspective CHECK se aplica en la migración 004 (no destructiva en host)
+    direction = Column(String(3), default="gte")   # gte|mte: mayor/c menor es mejor
+    unit = Column(String(20))
+    target = Column(Float)
+    thresholds = Column(JSONB)                      # {"amber": x, "red": y} — configurable
+    query_type = Column(String(30), nullable=False)
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class KpiSnapshot(Base):
+    """Valor computado de un KPI en un periodo (D6)."""
+
+    __tablename__ = "kpi_snapshots"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    kpi_id = Column(UUID(as_uuid=True), ForeignKey("kpis.id", ondelete="CASCADE"), nullable=False)
+    period_start = Column(DateTime, nullable=False)
+    period_end = Column(DateTime, nullable=False)
+    value = Column(Float, nullable=False)
+    computed_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Alert(Base):
+    """Alerta por KPI crítico / incidente (RAG-051)."""
+
+    __tablename__ = "alerts"
+    __table_args__ = (
+        CheckConstraint("severity IN ('info','warning','critical')", name="chk_alert_sev"),
+        CheckConstraint("status IN ('open','ack','resolved')", name="chk_alert_status"),
+    )
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    kpi_id = Column(UUID(as_uuid=True), ForeignKey("kpis.id", ondelete="SET NULL"))
+    severity = Column(String(10), nullable=False)
+    message = Column(Text, nullable=False)
+    status = Column(String(10), default="open")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at = Column(DateTime)
+    resolved_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class ActionPlan(Base):
+    """Plan de acción vinculado a un KPI en alerta (RAG-050 §53)."""
+
+    __tablename__ = "action_plans"
+    __table_args__ = (
+        CheckConstraint("status IN ('open','in_progress','done','cancelled')", name="chk_plan_status"),
+    )
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    kpi_id = Column(UUID(as_uuid=True), ForeignKey("kpis.id", ondelete="SET NULL"))
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    owner = Column(String(100))
+    due_date = Column(DateTime)
+    status = Column(String(10), default="open")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))

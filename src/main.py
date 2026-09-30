@@ -40,6 +40,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Synonym load failed: {e}")
 
+    # PLAN-005: seed de KPIs si la tabla está vacía (definidos según spec §43-50)
+    try:
+        from src.database import async_session
+        from src.services.bsc_seed import seed_kpis
+
+        async with async_session() as db:
+            await seed_kpis(db)
+        logger.info("BSC KPIs seeded (si faltaban)")
+    except Exception as e:
+        logger.warning(f"BSC KPI seed failed: {e}")
+
     try:
         from src.services.embeddings import preload
         preload()
@@ -66,8 +77,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from src.api.v1 import bsc as bsc_router_mod
+
 from src.api.v1.auth import router as auth_router
 from src.api.v1.audit import router as audit_router
+from src.api.v1.bsc import router as bsc_router
 from src.api.v1.documents import router as documents_router
 from src.api.v1.query import router as query_router
 from src.api.v1.synonyms import router as synonyms_router
@@ -79,6 +93,8 @@ app.include_router(query_router)
 app.include_router(synonyms_router)
 app.include_router(users_router)
 app.include_router(audit_router)
+app.include_router(bsc_router)
+# el módulo bsc_router_mod queda importado para el reporte HTML del tablero
 
 if settings.SECRET_KEY == "dev-secret-key-change-in-production":
     logger.warning(
