@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import logging
 import time
+
+from src.services.anonymizer import anonymize_text
 from typing import AsyncGenerator
 from uuid import UUID
 
@@ -120,7 +122,11 @@ async def query_rag(
     if not results:
         total_ms = (time.time() - t_total) * 1000
         return QueryResponse(
-            answer="No encontre fragmentos relevantes para esa consulta.",
+            # CP-006 (literal): declara insuficiencia de información y no inventa.
+            answer=(
+                "No dispongo de información suficiente en los documentos indexados "
+                "para responder esa consulta; no voy a inventar una respuesta."
+            ),
             sources=[],
             query=req.query,
             processing_time_ms=round(total_ms, 1),
@@ -128,6 +134,8 @@ async def query_rag(
             rerank_ms=0.0,
             llm_ms=0.0,
             total_ms=round(total_ms, 1),
+            abstained=True,
+            grounded=False,
         )
 
     # Re-ranking cross-encoder: recorta a RERANK_CANDIDATES antes del modelo
@@ -140,6 +148,35 @@ async def query_rag(
     )
     rerank_ms = (time.time() - t0) * 1000
 
+    # RAG-025 (CP-006): umbral de evidencia. Sin fuentes suficiente → abstención.
+    strong = [
+        r for r in results
+        if (getattr(r, "score", 0.0) or 0.0) >= settings.EVIDENCE_MIN_SCORE
+    ]
+    if len(strong) < max(1, settings.EVIDENCE_MIN_SOURCES):
+        total_ms = (time.time() - t_total) * 1000
+        await audit_event(db, current_user, "query", resource_type="query",
+                          detail={"question": req.query, "abstained": True,
+                                  "best_score": max([getattr(r, "score", 0.0) for r in results], default=0.0),
+                                  "threshold": settings.EVIDENCE_MIN_SCORE})
+        await db.commit()
+        return QueryResponse(
+            answer=(
+                "No dispongo de información suficiente en los documentos indexados "
+                "para responder esa consulta; no voy a inventar una respuesta."
+            ),
+            sources=[],
+            query=req.query,
+            processing_time_ms=round(total_ms, 1),
+            retrieval_ms=round(retrieval_ms, 1),
+            rerank_ms=round(rerank_ms, 1),
+            llm_ms=0.0,
+            total_ms=round(total_ms, 1),
+            abstained=True,
+            grounded=False,
+        )
+    results = strong
+
     context = build_context(results)
     t0 = time.time()
     timed = generate_answer_timed(context, req.query)
@@ -149,6 +186,31 @@ async def query_rag(
     # M4 (PLAN-004): trazabilidad completa usuario→consulta→chunks→respuesta
     # →fuentes en un solo evento `query` de audit_log (CP-009, RAG-040).
     sources = _results_to_sources(results)
+
+    # RAG-024 (CP-007): verificación de grounding — toda cita [n] del texto
+    # debe mapear a una fuente real; sin citas válidas → grounded=False.
+    import re as _re
+
+    answer_text = timed["text"]
+    cited = {int(n) for n in _re.findall(r"\[(\d+)\]", answer_text)}
+    grounded = bool(cited) and all(1 <= n <= len(sources) for n in cited)
+    # Reintento único con recordatorio de citar (PLAN-006 Fase 2):
+    if not grounded:
+        timed2 = generate_answer_timed(
+            context + "\n\nIMPORTANTE: cita las fuentes con [1], [2]... correspondientes.",
+            req.query,
+        )
+        llm_ms += timed2["prompt_eval_ms"] + timed2["generation_ms"]
+        total_ms = (time.time() - t_total) * 1000
+        answer_text = timed2["text"]
+        cited = {int(n) for n in _re.findall(r"\[(\d+)\]", answer_text)}
+        grounded = bool(cited) and all(1 <= n <= len(sources) for n in cited)
+        timed = timed2
+
+    # RAG-038 (CP-008): política de salida — si el LLM reintroduce un dato
+    # sensible (alucinación), se enmascara antes de devolver la respuesta.
+    anonymized_answer, _n_masked = anonymize_text(answer_text)
+    answer_text = anonymized_answer
     await audit_event(
         db,
         current_user,
@@ -174,7 +236,7 @@ async def query_rag(
     await db.commit()
 
     return QueryResponse(
-        answer=timed["text"],
+        answer=answer_text,
         sources=sources,
         query=req.query,
         processing_time_ms=round(total_ms, 1),
@@ -184,6 +246,8 @@ async def query_rag(
         total_ms=round(total_ms, 1),
         prompt_eval_ms=timed["prompt_eval_ms"],
         generation_ms=timed["generation_ms"],
+        abstained=False,
+        grounded=grounded,
     )
 
 
@@ -202,7 +266,7 @@ async def query_rag_stream(
             sources_data = [s.model_dump(mode="json") for s in _results_to_sources(results)]
             yield f"data: {json.dumps({'sources': sources_data})}\n\n"
             if not results:
-                yield f"data: {json.dumps({'token': 'No encontre fragmentos relevantes para esa consulta.'})}\n\n"
+                yield f"data: {json.dumps({'token': 'No dispongo de información suficiente en los documentos indexados para responder esa consulta; no voy a inventar una respuesta.'})}\n\n"
             else:
                 context = build_context(results)
                 async for token in generate_answer_stream(context, req.query):

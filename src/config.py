@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     # ── Perfil de eficiencia (PLAN-003 P6) ──
     PERFIL: str = os.getenv("PERFIL", "calidad")  # rapido|calidad
 
+    # ── Umbral de evidencia (PLAN-006 Fase 2 — RAG-025, CP-006) ──
+    # Si tras el filtro de visibilidad no hay >= EVIDENCE_MIN_SOURCES fuentes
+    # con score >= EVIDENCE_MIN_SCORE, el motor SE ABSTIENE (no inventa).
+    EVIDENCE_MIN_SOURCES: int = 1
+    EVIDENCE_MIN_SCORE: float = 0.15
+
     class Config:
         extra = "ignore"
 

@@ -56,6 +56,13 @@ class _StreamingEmbedder:
         text = (text or "").strip()
         if not text:
             return
+        # RAG-038 (PLAN-006 Fase 3): anonimizar datos sensibles ANTES de
+        # trocear/emebedar (CP-008). El PDF original NO se modifica.
+        from src.services.anonymizer import anonymize_text
+
+        text, _n_sensitive = anonymize_text(text)
+        if not text:
+            return
         page_tokens = self._count(text)
         max_size = settings.CHUNK_SIZE * 2
         if self._current_tokens + page_tokens > max_size and self._current_text:

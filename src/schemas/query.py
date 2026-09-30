@@ -37,6 +37,9 @@ class QueryResponse(BaseModel):
     total_ms: float = 0.0
     prompt_eval_ms: float = 0.0
     generation_ms: float = 0.0
+    # PLAN-006 Fase 2 (RAG-024/025):
+    abstained: bool = False
+    grounded: bool = False
 
 
 class SearchRequest(BaseModel):
