@@ -1,0 +1,1 @@
+"""Paquete central: roles, permisos."""

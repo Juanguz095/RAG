@@ -67,14 +67,24 @@ app.add_middleware(
 )
 
 from src.api.v1.auth import router as auth_router
+from src.api.v1.audit import router as audit_router
 from src.api.v1.documents import router as documents_router
 from src.api.v1.query import router as query_router
 from src.api.v1.synonyms import router as synonyms_router
+from src.api.v1.users import router as users_router
 
 app.include_router(auth_router)
 app.include_router(documents_router)
 app.include_router(query_router)
 app.include_router(synonyms_router)
+app.include_router(users_router)
+app.include_router(audit_router)
+
+if settings.SECRET_KEY == "dev-secret-key-change-in-production":
+    logger.warning(
+        "SECRET_KEY sigue en el default de desarrollo — configúralo en .env "
+        "(PLAN-004 M6). No subas a producción sin cambiarlo."
+    )
 
 
 @app.get("/api/v1/health")

@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 h (PLAN-004 M6)
 
     AUTH_REQUIRED: bool = os.getenv("AUTH_REQUIRED", "false").lower() == "true"
 

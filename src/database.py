@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    Column, DateTime, Float, ForeignKey, Index, Integer, String, Text,
+    Column, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text,
     create_engine, text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
@@ -30,9 +30,12 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
-    role = Column(String(20), default="assistant")
+    role = Column(String(20), default="assistant", nullable=False)
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+ROLE_VALUES = ("admin", "editor", "assistant", "viewer", "auditor")
 
 
 class Document(Base):
@@ -46,6 +49,7 @@ class Document(Base):
     page_count = Column(Integer)
     status = Column(String(20), default="pending")
     total_chunks = Column(Integer, default=0)
+    visibility = Column(String(10), default="public")  # public|restricted
     metadata_ = Column("metadata", JSONB, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     processed_at = Column(DateTime)
@@ -96,6 +100,34 @@ class MedicalSynonym(Base):
     synonym = Column(String(200), nullable=False, index=True)
     category = Column(String(50))
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AuditLog(Base):
+    """Registro append-only de eventos sensibles (RAG-039/040, PLAN-004)."""
+    __tablename__ = "audit_log"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('login','login_failed','logout','register','upload','update',"
+            "'delete','search','keyword','query','export','admin_action','validation','error')",
+            name="chk_audit_action",
+        ),
+    )
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    username = Column(String(50))
+    action = Column(String(50), nullable=False, index=True)
+    resource_type = Column(String(50))
+    resource_id = Column(String(64))
+    detail = Column(JSONB, default=dict)
+    ip = Column(String(45))
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class DocumentACL(Base):
+    """Roles con acceso a documentos restricted (PLAN-004 C7)."""
+    __tablename__ = "document_acl"
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True)
+    role = Column(String(20), primary_key=True)
 
 
 async def init_db():

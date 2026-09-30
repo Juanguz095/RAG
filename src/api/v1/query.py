@@ -6,12 +6,13 @@ import time
 from typing import AsyncGenerator
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_current_user
 from src.config import get_settings
+from src.core.permissions import require_permission
 from src.database import User, get_db
 from src.schemas.query import (
     ChunkResult,
@@ -20,6 +21,7 @@ from src.schemas.query import (
     SearchRequest,
     SearchResponse,
 )
+from src.services.audit import audit as audit_event
 from src.services.context import build_context
 from src.services.llm import generate_answer_stream, generate_answer_timed
 from src.services.retrieval import hybrid_search
@@ -69,8 +71,9 @@ def _results_to_sources(results) -> list[ChunkResult]:
 @router.post("/query", response_model=QueryResponse)
 async def query_rag(
     req: QueryRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User | None = Depends(get_current_user),
+    current_user: User | None = Depends(require_permission("query")),
 ):
     from src.services import reranker as rerank_svc
 
@@ -81,6 +84,38 @@ async def query_rag(
     t0 = time.time()
     results = await hybrid_search(req.query, db, top_k=req.max_chunks, doc_filter=doc_filter)
     retrieval_ms = (time.time() - t0) * 1000
+
+    # C7 (PLAN-004): los chunks de documentos restricted no se entregan a
+    # roles sin entrada en document_acl (regla §6.4 del diseño).
+    async def _can_see(r) -> bool:
+        doc = getattr(r, "document", None) or getattr(getattr(r, "chunk", None), "document", None)
+        vis = getattr(doc, "visibility", "public") if doc is not None else "public"
+        if vis != "restricted":
+            return True
+        if current_user is None or current_user.role == "admin":
+            return True
+        from sqlalchemy import select as _select
+
+        from src.database import DocumentACL
+
+        acl = None
+        try:
+            result_acl = await db.execute(
+                _select(DocumentACL).where(
+                    DocumentACL.document_id == doc.id, DocumentACL.role == current_user.role
+                )
+            )
+            acl = result_acl.scalar_one_or_none()
+        except Exception:
+            acl = None
+        return acl is not None
+
+    if results:
+        visible = []
+        for r in results:
+            if await _can_see(r):
+                visible.append(r)
+        results = visible
 
     if not results:
         total_ms = (time.time() - t_total) * 1000
@@ -110,9 +145,37 @@ async def query_rag(
     timed = generate_answer_timed(context, req.query)
     llm_ms = timed["prompt_eval_ms"] + timed["generation_ms"]
     total_ms = (time.time() - t_total) * 1000
+
+    # M4 (PLAN-004): trazabilidad completa usuario→consulta→chunks→respuesta
+    # →fuentes en un solo evento `query` de audit_log (CP-009, RAG-040).
+    sources = _results_to_sources(results)
+    await audit_event(
+        db,
+        current_user,
+        "query",
+        resource_type="query",
+        detail={
+            "question": req.query,
+            "chunks": [
+                {
+                    "chunk_id": str(getattr(r, "chunk_id", None) or getattr(getattr(r, "chunk", None), "id", None)),
+                    "document_id": str(getattr(r, "document_id", None) or getattr(getattr(r, "chunk", None), "document_id", None)),
+                    "pages": list(getattr(r, "page_numbers", None) or getattr(getattr(r, "chunk", None), "page_numbers", None) or []),
+                }
+                for r in results
+            ],
+            "answer": timed["text"],
+            "sources": [s.model_dump(mode="json") for s in sources],
+            "model": settings.__dict__.get("LLM_MODEL_PATH", "") or "default",
+            "prompt_eval_ms": timed["prompt_eval_ms"],
+            "generation_ms": timed["generation_ms"],
+        },
+    )
+    await db.commit()
+
     return QueryResponse(
         answer=timed["text"],
-        sources=_results_to_sources(results),
+        sources=sources,
         query=req.query,
         processing_time_ms=round(total_ms, 1),
         retrieval_ms=round(retrieval_ms, 1),
@@ -127,8 +190,9 @@ async def query_rag(
 @router.post("/query/stream")
 async def query_rag_stream(
     req: QueryRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User | None = Depends(get_current_user),
+    current_user: User | None = Depends(require_permission("query")),
 ):
     doc_filter = str(req.doc_filter) if req.doc_filter else None
     results = await hybrid_search(req.query, db, top_k=req.max_chunks, doc_filter=doc_filter)
@@ -154,13 +218,42 @@ async def query_rag_stream(
 @router.post("/search", response_model=SearchResponse)
 async def search_only(
     req: SearchRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User | None = Depends(get_current_user),
+    current_user: User | None = Depends(require_permission("search")),
 ):
     doc_filter = str(req.doc_filter) if req.doc_filter else None
     # Fetch a wider pool so page_filter still has candidates after MIN_RELEVANCE
     pool = req.top_k * 5 if req.page_filter is not None else req.top_k * 3
     results = await hybrid_search(req.query, db, top_k=pool, doc_filter=doc_filter)
+    if results:
+        visible = []
+        for r in results:
+            doc = getattr(r, "document", None) or getattr(getattr(r, "chunk", None), "document", None)
+            vis = getattr(doc, "visibility", "public") if doc is not None else "public"
+            if vis == "restricted" and current_user is not None and current_user.role != "admin":
+                from sqlalchemy import select as _select
+
+                from src.database import DocumentACL
+
+                try:
+                    acl = (
+                        await db.execute(
+                            _select(DocumentACL).where(
+                                DocumentACL.document_id == doc.id,
+                                DocumentACL.role == current_user.role,
+                            )
+                        )
+                    ).scalar_one_or_none()
+                except Exception:
+                    acl = None
+                if acl is None:
+                    continue
+            visible.append(r)
+        results = visible
+    await audit_event(db, current_user, "search", resource_type="search",
+                      detail={"query": req.query, "results": len(results)})
+    await db.commit()
 
     filtered = results
     if req.page_filter is not None:

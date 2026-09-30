@@ -15,9 +15,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
+from fastapi import Request
 from src.config import get_settings
 from src.api.deps import get_current_user, require_admin
+from src.core.permissions import require_permission
 from src.database import Document, Chunk, User, get_db
+from src.services.audit import audit
 from src.schemas.document import DocumentListResponse, DocumentResponse
 
 logger = logging.getLogger(__name__)
@@ -30,9 +33,10 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.post("", status_code=202, response_model=dict)
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User | None = Depends(get_current_user),
+    current_user: User | None = Depends(require_permission("documents:upload")),
 ):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files allowed")
@@ -73,11 +77,17 @@ async def upload_document(
         logger.error(f"Enqueue failed for {doc.id}: {exc}")
         await db.rollback()
         pdf_path.unlink(missing_ok=True)
+        # RAG-054: errores del pipeline quedan auditados (evento `error`).
+        await audit(db, current_user, "error", resource_type="document",
+                    resource_id=str(doc.id), detail={"stage": "enqueue", "error": str(exc)[:200]})
         raise HTTPException(
             status_code=503,
             detail="Processing queue unavailable, try again later",
         ) from exc
 
+    await audit(db, current_user, "upload", resource_type="document", resource_id=str(doc.id),
+                detail={"filename": file.filename, "size": len(content)})
+    await db.commit()
     return {"id": str(doc.id), "status": "processing", "message": "Document uploaded, processing in background"}
 
 
@@ -226,7 +236,7 @@ async def get_document_chunks(
 async def delete_document(
     doc_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _admin: User | None = Depends(require_admin),
+    current_user: User | None = Depends(require_permission("documents:delete")),
 ):
     result = await db.execute(select(Document).where(Document.id == doc_id))
     doc = result.scalar_one_or_none()
@@ -240,4 +250,7 @@ async def delete_document(
         pdf_path.unlink()
 
     await db.delete(doc)
+    await db.commit()
+    await audit(db, current_user, "delete", resource_type="document", resource_id=str(doc_id),
+                detail={"original_name": doc.original_name})
     await db.commit()
