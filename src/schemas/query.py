@@ -35,6 +35,8 @@ class QueryResponse(BaseModel):
     rerank_ms: float = 0.0
     llm_ms: float = 0.0
     total_ms: float = 0.0
+    prompt_eval_ms: float = 0.0
+    generation_ms: float = 0.0
 
 
 class SearchRequest(BaseModel):

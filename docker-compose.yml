@@ -36,6 +36,7 @@ services:
     image: rag-api:latest
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000
     ports: ["8000:8000"]
+    mem_limit: 3g
     volumes:
       - ./src:/app/src
       - ./frontend:/app/frontend:ro
@@ -53,6 +54,10 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-BAAI/bge-m3}
       - OCR_ENGINE=${OCR_ENGINE:-tesseract}
+      - PERFIL=${PERFIL:-calidad}
+      - LLM_MODEL_PATH=${LLM_MODEL_PATH:-}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-256}
+      - CONTEXT_MAX_CHARS=${CONTEXT_MAX_CHARS:-4000}
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }

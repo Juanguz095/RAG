@@ -75,10 +75,60 @@ def generate_answer(
         max_tokens=max_tokens or settings.LLM_MAX_TOKENS,
         temperature=settings.LLM_TEMPERATURE if temperature is None else temperature,
         top_p=0.9,
-        stop=["</s>", "<|user|>", "<|system|>"],
+        stop=["</s>", "eot"][:2],
     )
     text = output["choices"][0]["text"].strip()
     return text
+
+
+def generate_answer_timed(
+    context: str,
+    question: str,
+    max_tokens: Optional[int] = None,
+    temperature: Optional[float] = None,
+) -> dict:
+    """Como generate_answer pero separando prompt_eval_ms / generation_ms.
+
+    llama-cpp-python con verbose=False no expone timings dict; medimos
+    manualmente: prompt_eval_ms ≈ tiempo hasta el primer token (streaming
+    interno), generation_ms ≈ resto, y tokens/s sobre los tokens generados.
+    """
+    import time as _time
+
+    llm = _get_llm()
+    prompt = _build_prompt(context, question)
+    t0 = _time.time()
+    first_token_at = None
+    chunks: list[str] = []
+    stream = llm(
+        prompt=prompt,
+        max_tokens=max_tokens or settings.LLM_MAX_TOKENS,
+        temperature=settings.LLM_TEMPERATURE if temperature is None else temperature,
+        top_p=0.9,
+        stop=["</s>", "user"][:2],
+        stream=True,
+        # PLAN-003 P4: llama-cpp 0.3.35 no expone cache_prompt en __call__;
+        # la reutilización del KV del prefijo depende del motor (llama.cpp
+        # recicla hashes de prompt internamente cuando tokens coinciden).
+        # P4 documentado como limitación de la librería en docs/bench_velocidad.md.
+    )
+    for chunk in stream:
+        delta = chunk["choices"][0].get("text", "")
+        if delta:
+            if first_token_at is None:
+                first_token_at = _time.time()
+            chunks.append(delta)
+    total = (_time.time() - t0) * 1000
+    if first_token_at is None:
+        return {"text": "", "prompt_eval_ms": round(total, 1), "generation_ms": 0.0, "tokens_generated": 0}
+    prompt_eval_ms = (first_token_at - t0) * 1000
+    generation_ms = total - prompt_eval_ms
+    return {
+        "text": "".join(chunks).strip(),
+        "prompt_eval_ms": round(prompt_eval_ms, 1),
+        "generation_ms": round(generation_ms, 1),
+        "tokens_generated": len(chunks),
+    }
 
 
 _EXTRACTION_JSON_SCHEMA = {

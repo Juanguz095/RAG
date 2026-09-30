@@ -21,7 +21,7 @@ from src.schemas.query import (
     SearchResponse,
 )
 from src.services.context import build_context
-from src.services.llm import generate_answer, generate_answer_stream
+from src.services.llm import generate_answer_stream, generate_answer_timed
 from src.services.retrieval import hybrid_search
 
 logger = logging.getLogger(__name__)
@@ -95,18 +95,23 @@ async def query_rag(
             total_ms=round(total_ms, 1),
         )
 
-    # Re-ranking cross-encoder (queda con RERANK_TOP_K de la config)
+    # Re-ranking cross-encoder: recorta a RERANK_CANDIDATES antes del modelo
+    # (PLAN-003 P5) y queda con RERANK_TOP_K finales.
     t0 = time.time()
-    results = rerank_svc.rerank(req.query, results, top_k=max(1, settings.RERANK_TOP_K))
+    results = rerank_svc.rerank(
+        req.query,
+        results[: max(1, settings.RERANK_CANDIDATES)],
+        top_k=max(1, settings.RERANK_TOP_K),
+    )
     rerank_ms = (time.time() - t0) * 1000
 
     context = build_context(results)
     t0 = time.time()
-    answer = generate_answer(context, req.query)
-    llm_ms = (time.time() - t0) * 1000
+    timed = generate_answer_timed(context, req.query)
+    llm_ms = timed["prompt_eval_ms"] + timed["generation_ms"]
     total_ms = (time.time() - t_total) * 1000
     return QueryResponse(
-        answer=answer,
+        answer=timed["text"],
         sources=_results_to_sources(results),
         query=req.query,
         processing_time_ms=round(total_ms, 1),
@@ -114,6 +119,8 @@ async def query_rag(
         rerank_ms=round(rerank_ms, 1),
         llm_ms=round(llm_ms, 1),
         total_ms=round(total_ms, 1),
+        prompt_eval_ms=timed["prompt_eval_ms"],
+        generation_ms=timed["generation_ms"],
     )
 
 

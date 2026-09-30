@@ -26,7 +26,10 @@ class Settings(BaseSettings):
     AUTH_REQUIRED: bool = os.getenv("AUTH_REQUIRED", "false").lower() == "true"
 
     MODEL_DIR: str = "/models"
-    QWEN_MODEL_PATH: str = ""
+    QWEN_MODEL_PATH: str = os.getenv(
+        "QWEN_MODEL_PATH",
+        "/models/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+    )
     LLM_MODEL_PATH: str = os.getenv("LLM_MODEL_PATH", "")
     EMBED_MODEL_NAME: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
@@ -38,20 +41,38 @@ class Settings(BaseSettings):
     # ── Re-ranking (PLAN-001 Fase 3) ──
     RERANK_MODEL_NAME: str = "BAAI/bge-reranker-base"
 
-    LLM_N_CTX: int = 4096
-    LLM_N_THREADS: int = 4
-    LLM_N_BATCH: int = 256
-    LLM_MAX_TOKENS: int = 1024
+    # ── LLM (PLAN-003: P2/P3 recortes + tuning de CPU) ──
+    LLM_N_CTX: int = 2048
+    LLM_N_THREADS: int = 6
+    LLM_N_BATCH: int = 512
+    LLM_MAX_TOKENS: int = 256
     LLM_TEMPERATURE: float = 0.1
 
     CHUNK_SIZE: int = 500
     CHUNK_OVERLAP: int = 50
     RETRIEVAL_TOP_K: int = 30
     RERANK_TOP_K: int = 10
-    CONTEXT_MAX_CHARS: int = 6000
+    RERANK_CANDIDATES: int = 15
+    CONTEXT_MAX_CHARS: int = 4000
+
+    # ── Perfil de eficiencia (PLAN-003 P6) ──
+    PERFIL: str = os.getenv("PERFIL", "calidad")  # rapido|calidad
 
     class Config:
         extra = "ignore"
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        # El perfil aplica defaults si los variables hijas no fueron fijadas
+        # de forma explícita (kwargs > perfil > env).
+        if self.PERFIL == "rapido":
+            if self.CONTEXT_MAX_CHARS > 2500:
+                self.CONTEXT_MAX_CHARS = 2500
+            if self.RERANK_TOP_K > 5:
+                self.RERANK_TOP_K = 5
+            if self.RERANK_CANDIDATES > 8:
+                self.RERANK_CANDIDATES = 8
+        # perfil calidad: defaults ya declarados arriba
 
 
 @lru_cache
