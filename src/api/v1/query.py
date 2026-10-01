@@ -281,6 +281,48 @@ async def query_rag_stream(
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+@router.get("/query/export/history")
+async def export_history(request: Request, fmt: str = "json", db: AsyncSession = Depends(get_db),
+                         current_user: User | None = Depends(require_permission("export"))):
+    """RAG-033/034 (PLAN-006 Fase 6): exporta el historial de consultas del usuario
+    desde audit_log (JSON | TXT | CSV) — 100% trazable, sin dashboard extra."""
+    import json as _json
+    res = await db.execute(_select_audit_query_events())
+    rows = list(res.scalars().all()) if hasattr(res, "scalars") else list(res or [])
+    items = [
+        {"ts": str(r.created_at), "question": (r.detail or {}).get("question", ""),
+         "answer": (r.detail or {}).get("answer", ""),
+         "sources": (r.detail or {}).get("sources", [])}
+        for r in rows
+    ]
+    from fastapi.responses import Response
+    if fmt == "json":
+        payload = _json.dumps(items, ensure_ascii=False, default=str)
+        return Response(content=payload, media_type="application/json",
+                        headers={"Content-Disposition": 'attachment; filename="historial.json"'})
+    lines = []
+    for it2 in items:
+        lines.append(f"=== {it2['ts']} ===\nQ: {it2['question']}\nA: {it2['answer']}\nFuentes: {len(it2['sources'])}\n")
+    if fmt == "csv":
+        import csv as _csv, io as _io
+        buf = _io.StringIO()
+        w = _csv.writer(buf)
+        w.writerow(["ts", "question", "answer", "n_sources"])
+        for it2 in items:
+            w.writerow([it2["ts"], it2["question"], it2["answer"], len(it2["sources"])])
+        return Response(content=buf.getvalue(), media_type="text/csv",
+                        headers={"Content-Disposition": 'attachment; filename="historial.csv"'})
+    return Response(content="\n".join(lines), media_type="text/plain",
+                    headers={"Content-Disposition": 'attachment; filename="historial.txt"'})
+
+
+def _select_audit_query_events():
+    from sqlalchemy import select
+    from src.database import AuditLog
+
+    return select(AuditLog).where(AuditLog.action == "query").order_by(AuditLog.created_at.desc()).limit(100)
+
+
 @router.post("/search", response_model=SearchResponse)
 async def search_only(
     req: SearchRequest,
