@@ -31,13 +31,35 @@ UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", "/app/uploads"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
-@router.post("", status_code=202, response_model=dict)
-async def upload_document(
-    request: Request,
-    file: UploadFile = File(...),
+@router.post("/upload-multiple", status_code=207, response_model=dict)
+async def upload_multiple(
+    files: list[UploadFile] = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(require_permission("documents:upload")),
 ):
+    """CP-003: subida múltiple con resultado por archivo aislado (207).
+
+    Un PDF corrupto no tira el resto: cada archivo se procesa en su propio
+    try/except y el estado va en `results`.
+    """
+    results = []
+    for f in files:
+        try:
+            res = await _upload_one(f, db, current_user)
+            results.append({"filename": f.filename, "ok": True, **res})
+        except HTTPException as e:
+            results.append({"filename": f.filename, "ok": False, "error": e.detail,
+                            "status_code": e.status_code})
+        except Exception as e:
+            logger.warning(f"upload-multiple fallo {f.filename}: {e}")
+            results.append({"filename": f.filename, "ok": False, "error": str(e)[:200],
+                            "status_code": 500})
+    return {"results": results}
+
+
+async def _upload_one(file: UploadFile, db: AsyncSession, current_user):
+    """File 1:1 — validación, dedup por hash, persistencia y encolado con
+    compensación (ni documento huérfano ni PDF remanente — PLAN-002 C4)."""
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files allowed")
 
@@ -45,11 +67,13 @@ async def upload_document(
     if len(content) > 100 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File too large (max 100MB)")
 
-    file_hash = hashlib.sha256(content).hexdigest()
+    # RAG-054 (CP-003): PDF inválido/corrupto → mensaje controlado; ya no se
+    # depende solo de la extensión.
+    if not content.lstrip().startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="Invalid PDF file (corrupt or not a PDF)")
 
-    existing = await db.execute(
-        select(Document).where(Document.file_hash == file_hash)
-    )
+    file_hash = hashlib.sha256(content).hexdigest()
+    existing = await db.execute(select(Document).where(Document.file_hash == file_hash))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Document already uploaded")
 
@@ -68,8 +92,6 @@ async def upload_document(
     pdf_path = UPLOAD_DIR / f"{file_hash}.pdf"
     pdf_path.write_bytes(content)
 
-    # Encolado con compensación: si la cola (Redis/Celery) está caída, no deja
-    # ni documento huérfano ni PDF remanente (contrato PLAN-002 C4).
     from src.workers.ingestion_tasks import enqueue_process_document
     try:
         enqueue_process_document(str(doc.id), str(pdf_path))
@@ -77,18 +99,29 @@ async def upload_document(
         logger.error(f"Enqueue failed for {doc.id}: {exc}")
         await db.rollback()
         pdf_path.unlink(missing_ok=True)
-        # RAG-054: errores del pipeline quedan auditados (evento `error`).
         await audit(db, current_user, "error", resource_type="document",
-                    resource_id=str(doc.id), detail={"stage": "enqueue", "error": str(exc)[:200]})
+                    resource_id=str(doc.id),
+                    detail={"stage": "enqueue", "error": str(exc)[:200]})
         raise HTTPException(
             status_code=503,
             detail="Processing queue unavailable, try again later",
         ) from exc
 
-    await audit(db, current_user, "upload", resource_type="document", resource_id=str(doc.id),
+    await audit(db, current_user, "upload", resource_type="document",
+                resource_id=str(doc.id),
                 detail={"filename": file.filename, "size": len(content)})
     await db.commit()
-    return {"id": str(doc.id), "status": "processing", "message": "Document uploaded, processing in background"}
+    return {"id": str(doc.id), "status": "processing",
+            "message": "Document uploaded, processing in background"}
+
+
+@router.post("", status_code=202, response_model=dict)
+async def upload_document(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(require_permission("documents:upload")),
+):
+    return await _upload_one(file, db, current_user)
 
 
 @router.post("/{doc_id}/reprocess", status_code=202, response_model=dict)

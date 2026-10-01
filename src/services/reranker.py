@@ -55,8 +55,17 @@ def rerank(query: str, results: list, top_k: int | None = None):
         return results[:top_k] if top_k else results
 
     try:
+        import math
+
         pairs = [(query, r.content or "") for r in results]
         scores = model.predict(pairs, batch_size=8, show_progress_bar=False)
+        # Guardar el score del cross-encoder (logit) normalizado a [0,1]
+        # (sigmoid) — es la base del umbral de evidencia CP-006.
+        for res_obj, s in zip(results, scores):
+            try:
+                setattr(res_obj, "rerank_score", round(1.0 / (1.0 + math.exp(-float(s))), 4))
+            except Exception:
+                setattr(res_obj, "rerank_score", 0.0)
         ranked = [r for _, r in sorted(zip(scores, results), key=lambda p: -float(p[0]))]
         return ranked[:top_k] if top_k else ranked
     except Exception as e:

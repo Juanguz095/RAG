@@ -151,6 +151,15 @@ async def compute_kpi(
     ).scalar_one_or_none()
     if k is None:
         raise HTTPException(status_code=404, detail="KPI not found")
+    out = await bsc_svc.compute_and_snapshot(db, k)
+    await audit(db, user, "admin_action", resource_type="kpi", resource_id=k.code,
+                detail={**out})
+    await db.commit()
+    return out
+    # (lógica movida a services/bsc.compute_and_snapshot — PLAN-007 F7)
+
+
+async def _compute_kpi_legacy(db, user=None, code=None):
     data = await _collect_inputs(db)
     value: float
     formula = ""

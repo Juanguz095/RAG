@@ -287,6 +287,20 @@
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
     @keyframes typingBounce { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-4px); } }
     @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* ── RESPONSIVE (PLAN-007 · RAG-036) ── */
+    @media (max-width: 900px) {
+      .sidebar { position:fixed; left:-240px; z-index:60; transition:left .25s ease; box-shadow:4px 0 24px rgba(0,0,0,.25); }
+      .sidebar.open { left:0; }
+      .mobile-topbar { display:flex; }
+      .center-column { padding:12px; }
+      .chat-input-row { flex-direction:column; }
+    }
+    .mobile-topbar { display:none; position:sticky; top:0; z-index:50; align-items:center; gap:10px; padding:10px 14px; background:var(--bg-card); border-bottom:1px solid var(--border); }
+    .hamburger { cursor:pointer; padding:6px; border-radius:var(--radius-sm); color:var(--text-secondary); }
+    .hamburger:hover { background:var(--accent-soft); color:var(--accent); }
+    .sidebar-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:59; }
+    @media (max-width: 900px) { .sidebar-backdrop.show { display:block; } }
   </style>
 </head>
 <body>
@@ -315,7 +329,14 @@
     <div class="app-layout">
 
       <!-- SIDEBAR -->
-      <aside class="sidebar">
+      <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar(false)"></div>
+      <div class="mobile-topbar">
+        <div class="hamburger" onclick="toggleSidebar(true)">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+        </div>
+        <span class="logo-text">MedRAG</span>
+      </div>
+      <aside class="sidebar" id="sidebar">
         <div class="sidebar-logo">
           <div class="logo-icon">
             <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
@@ -330,6 +351,14 @@
           <div class="nav-item active" onclick="setView(this,'dashboard')">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
             Dashboard
+          </div>
+          <div class="nav-item" onclick="newConversation()">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM7 9h10v2H7V9zm6 5H7v-2h6v2z"/></svg>
+            <span id="chat-conv-label">Nueva conversación</span>
+          </div>
+          <div class="nav-item" onclick="downloadHistory()">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4L10 13.2V3h2zM5 19h14v2H5z"/></svg>
+            Historial
           </div>
           <div class="nav-item" onclick="setView(this,'bsc')">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2v10h-2zm6 0h2v7h-2zM5 7h2v13H5zM3 21V3h2v16h16v2z"/></svg>
@@ -368,7 +397,7 @@
             <div class="upload-link" id="upload-link">o selecciona un archivo</div>
             <div class="upload-hint">Solo archivos .pdf - Maximo 100MB</div>
             <div class="upload-status" id="upload-status"></div>
-            <input type="file" id="file-input" accept=".pdf" style="display:none">
+            <input type="file" id="file-input" accept=".pdf" multiple style="display:none">
           </div>
           <div class="upload-progress" id="upload-progress">
             <div class="progress-info">
@@ -707,7 +736,7 @@
           '<div class="upload-link" id="upload-link">o selecciona un archivo</div>' +
           '<div class="upload-hint">Solo archivos .pdf - Maximo 100MB</div>' +
           '<div class="upload-status" id="upload-status"></div>' +
-          '<input type="file" id="file-input" accept=".pdf" style="display:none">';
+          '<input type="file" id="file-input" accept=".pdf" multiple style="display:none">';
         zone.onclick = () => document.getElementById('file-input').click();
         const progress = document.getElementById('upload-progress');
         if (progress) progress.classList.remove('show');
@@ -1517,6 +1546,25 @@
 
       const loadingDiv = addChatMsg('ai', '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>', time);
 
+      // Modo conversación (PLAN-007 F5): usa el endpoint de chat con memoria.
+      if (window.currentConvId) {
+        try {
+          const res = await fetch(API + '/api/v1/chat/conversations/' + window.currentConvId + '/messages', {
+            method: 'POST',
+            headers: {...authHeaders(), 'Content-Type': 'application/json'},
+            body: JSON.stringify({content: q})
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const d = await res.json();
+          let srcHtml = (d.sources || []).map(s =>
+            '<div class="chat-msg-sources">📄 ' + esc(s.document || '') + ' - Pag. ' + (s.page || []).join(',') + '</div>').join('');
+          loadingDiv.querySelector('.chat-msg-content').innerHTML = esc(d.content || '') + srcHtml;
+        } catch(e2) {
+          loadingDiv.querySelector('.chat-msg-content').innerHTML = '<span style="color:var(--danger)">Error: ' + esc(e2.message) + '</span>';
+        }
+        return;
+      }
+
       const body = {query: q, max_chunks: 10};
       if (selectedDocId) body.doc_filter = selectedDocId;
 
@@ -1563,15 +1611,18 @@
     uploadZone.addEventListener('drop', e => {
       e.preventDefault();
       uploadZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files[0]);
+      if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files);
     });
     fileInput.addEventListener('change', e => {
-      if (e.target.files.length) handleUpload(e.target.files[0]);
+      if (e.target.files.length) handleUpload(e.target.files);
       e.target.value = '';
     });
 
-    async function handleUpload(file) {
-      if (!file.name.toLowerCase().endsWith('.pdf')) {
+    async function handleUpload(fileList) {
+      const files = Array.from(fileList);
+      if (files.length > 1) return handleUploadMultiple(files);
+      const file = files[0];
+      if (!file || !file.name.toLowerCase().endsWith('.pdf')) {
         showToast('Solo se permiten archivos PDF', 'error');
         setUploadError('Solo se permiten archivos PDF');
         return;
@@ -1725,11 +1776,85 @@
     }
 
     // ── NAV ──
+    function toggleSidebar(open) {
+      const sb = document.getElementById('sidebar');
+      const bd = document.getElementById('sidebar-backdrop');
+      if (open) { sb.classList.add('open'); bd.classList.add('show'); }
+      else { sb.classList.remove('open'); bd.classList.remove('show'); }
+    }
+
+    function downloadHistory() {
+      const fmt = (sessionStorage.getItem('hist_fmt') || 'csv');
+      fetch(API + '/api/v1/query/export/history?format=' + fmt, {headers: authHeaders()})
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+        .then(b => {
+          const url = URL.createObjectURL(b);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'historial.' + fmt; a.click();
+          URL.revokeObjectURL(url);
+          showToast('Historial descargado (' + fmt + ')', 'success');
+        })
+        .catch(e => showToast('No se pudo descargar el historial: ' + e.message, ''));
+    }
+
     function setView(el, view) {
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       el.classList.add('active');
       if (view === 'dashboard') showDashboard();
       if (view === 'bsc') { el.classList.remove('active'); window.open('/bsc.html', '_blank'); }
+    }
+
+    // ── CONVERSACIONES (PLAN-007 F5 / RAG-028/029) ──
+    async function newConversation() {
+      try {
+        const res = await fetch(API + '/api/v1/chat/conversations', {
+          method: 'POST', headers: {...authHeaders(), 'Content-Type': 'application/json'},
+          body: JSON.stringify({title: 'Conversación ' + new Date().toLocaleString()})
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const d = await res.json();
+        window.currentConvId = d.id;
+        const lbl = document.getElementById('chat-conv-label');
+        if (lbl) lbl.textContent = d.title.slice(0, 22);
+        showToast('Nueva conversación iniciada', 'success');
+        const sec = document.getElementById('chat-messages');
+        if (sec) sec.innerHTML = '';
+      } catch(e) { showToast('No se pudo crear conversación: ' + e.message, 'error'); }
+    }
+    async function listConversations() {
+      const res = await fetch(API + '/api/v1/chat/conversations', {headers: authHeaders()});
+      return res.ok ? await res.json() : [];
+    }
+
+    // ── SUBIDA MÚLTIPLE (CP-003): cola con estado por archivo ──
+    async function handleUploadMultiple(files) {
+      const zone = document.getElementById('upload-zone');
+      const status = document.getElementById('upload-status');
+      const text = document.getElementById('upload-text');
+      text.textContent = 'Subiendo ' + files.length + ' archivos...';
+      const fd = new FormData();
+      let bad = 0;
+      for (const f of files) {
+        if (!f.name.toLowerCase().endsWith('.pdf') || f.size > 100 * 1024 * 1024) { bad++; continue; }
+        fd.append('files', f, f.name);
+      }
+      if (!fd.getAll('files').length) { showToast('Ningun PDF valido en la seleccion', 'error'); zone.className = 'upload-zone'; text.textContent = 'Arrastra tu PDF aqui'; return; }
+      try {
+        const resp = await fetch(API + '/api/v1/documents/upload-multiple', { method: 'POST', headers: authHeaders(), body: fd });
+        const d = await resp.json();
+        const ok = (d.results || []).filter(x => x.ok).length;
+        const fail = (d.results || []).length - ok;
+        status.className = 'upload-status ok';
+        status.textContent = `${ok} aceptados${fail ? ', ' + fail + ' rechazados' : ''}`;
+        text.textContent = 'Arrastra tu PDF aqui';
+        showToast(ok + ' archivo(s) en cola de procesamiento' + (fail ? ' (' + fail + ' invalidos)' : ''), ok ? 'success' : 'error');
+        loadDocs && loadDocs();
+        zone.className = 'upload-zone';
+      } catch (e) {
+        setUploadError('Fallo la subida: ' + e.message);
+        zone.className = 'upload-zone';
+        text.textContent = 'Arrastra tu PDF aqui';
+      }
     }
 
     // ── TOAST ──

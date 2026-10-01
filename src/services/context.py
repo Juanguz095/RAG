@@ -7,20 +7,22 @@ settings = get_settings()
 
 
 def _estimate_tokens(text: str) -> int:
-    return len(text) // 3
+    # Estimación conservadora: español/OCR real rinde ~2.2 chars/token
+    # (len/3 subestimaba y provocaba overflow del ctx del LLM).
+    return int(len(text) / 2.2)
 
 
 def build_context(results: list[RetrievalResult]) -> str:
     parts = []
     total_tokens = 0
     max_tokens = settings.CONTEXT_MAX_CHARS // 3
-    for r in results:
-        chunk_text = f"[Documento: {r.document_name} | Paginas: {r.page_numbers}]\n{r.content}"
+    for i, r in enumerate(results):
+        chunk_text = f"[{i + 1}] Documento: {r.document_name} | Paginas: {r.page_numbers}\n{r.content}"
         chunk_tokens = _estimate_tokens(chunk_text)
         if total_tokens + chunk_tokens > max_tokens:
             remaining = max_tokens - total_tokens
             if remaining > 30:
-                chunk_text = chunk_text[:remaining * 3] + "..."
+                chunk_text = chunk_text[:int(remaining * 2.2)] + "..."
                 parts.append(chunk_text)
             break
         parts.append(chunk_text)

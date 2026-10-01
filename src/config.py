@@ -23,7 +23,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 h (PLAN-004 M6)
 
-    AUTH_REQUIRED: bool = os.getenv("AUTH_REQUIRED", "false").lower() == "true"
+    AUTH_REQUIRED: bool = os.getenv("AUTH_REQUIRED", "true").lower() == "true"
+
+    # Chat con memoria (RAG-028, PLAN-007 F5)
+    CHAT_MEMORY_N: int = int(os.getenv("CHAT_MEMORY_N", "4"))
 
     MODEL_DIR: str = "/models"
     QWEN_MODEL_PATH: str = os.getenv(

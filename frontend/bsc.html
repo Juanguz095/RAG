@@ -112,6 +112,7 @@
     <button class="primary" onclick="computeAll(false)">⚙️ Recalcular KPIs</button>
     <a href="#" id="pdf-link" onclick="downloadReport('pdf');return false"><button>📄 PDF</button></a>
     <a href="#" id="xlsx-link" onclick="downloadReport('xlsx');return false"><button>📊 XLSX</button></a>
+     <a href="#" onclick="downloadReport('csv');return false"><button>🧾 CSV historial</button></a>
     <button onclick="logout()">Salir</button>
   </div>
 </header>
@@ -196,16 +197,19 @@ async function jf(url, opts = {}) {
 }
 async function downloadReport(ext) {
   try {
-    const r = await fetch(API + '/api/v1/bsc/report.' + ext, { headers: hdrs() });
+    let url = downloadReport._u[ext] || (API + '/api/v1/bsc/report.' + ext);
+    const r = await fetch(url, { headers: hdrs() });
     if (!r.ok) throw new Error(r.status);
     const blob = await r.blob();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'reporte_bsc.' + ext;
+    a.download = downloadReport._n[ext] || ('reporte_bsc.' + ext);
     a.click();
     URL.revokeObjectURL(a.href);
   } catch (e) { alert('No se pudo descargar el reporte: ' + e.message); }
 }
+downloadReport._u = { csv: API + '/api/v1/query/export/history?format=csv' };
+downloadReport._n = { csv: 'historial_consultas.csv' };
 
 async function login() {
   const r = await fetch(API + '/api/v1/auth/login', {

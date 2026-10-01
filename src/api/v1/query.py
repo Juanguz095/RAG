@@ -8,7 +8,7 @@ from src.services.anonymizer import anonymize_text
 from typing import AsyncGenerator
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -151,15 +151,20 @@ async def query_rag(
     rerank_ms = (time.time() - t0) * 1000
 
     # RAG-025 (CP-006): umbral de evidencia. Sin fuentes suficiente → abstención.
-    strong = [
-        r for r in results
-        if (getattr(r, "score", 0.0) or 0.0) >= settings.EVIDENCE_MIN_SCORE
-    ]
+    def _evidence_score(r):
+        # Preferir el score del cross-encoder (sigmoid 0-1, seteado por
+        # rerank()); fallback: score híbrido escalado (RRF ~0-0.03 → x10).
+        rs = getattr(r, "rerank_score", None)
+        if rs is not None:
+            return float(rs)
+        return float(getattr(r, "score", 0.0) or 0.0) * 10.0
+
+    strong = [r for r in results if _evidence_score(r) >= settings.EVIDENCE_MIN_SCORE]
     if len(strong) < max(1, settings.EVIDENCE_MIN_SOURCES):
         total_ms = (time.time() - t_total) * 1000
         await audit_event(db, current_user, "query", resource_type="query",
                           detail={"question": req.query, "abstained": True,
-                                  "best_score": max([getattr(r, "score", 0.0) for r in results], default=0.0),
+                                  "best_score": max([_evidence_score(r) for r in results], default=0.0),
                                   "threshold": settings.EVIDENCE_MIN_SCORE})
         await db.commit()
         return QueryResponse(
@@ -208,6 +213,18 @@ async def query_rag(
         cited = {int(n) for n in _re.findall(r"\[(\d+)\]", answer_text)}
         grounded = bool(cited) and all(1 <= n <= len(sources) for n in cited)
         timed = timed2
+
+    # CP-007 (RAG-026): la respuesta SIEMPRE incluye la referencia al
+    # documento y ubicación de las fuentes usadas; si el LLM no citó inline
+    # ([n] ausente/inválido), se adjunta el bloque "Fuentes" verificable.
+    if not grounded and sources:
+        fparts = []
+        for s in sources[:3]:
+            fparts.append(
+                f"- {s.document_name}, pág. {s.page_numbers}"
+                + (f' (sección: {s.section})' if s.section else "")
+            )
+        answer_text += "\n\nFuentes consultadas:\n" + "\n".join(fparts)
 
     # RAG-038 (CP-008): política de salida — si el LLM reintroduce un dato
     # sensible (alucinación), se enmascara antes de devolver la respuesta.
@@ -282,7 +299,9 @@ async def query_rag_stream(
 
 
 @router.get("/query/export/history")
-async def export_history(request: Request, fmt: str = "json", db: AsyncSession = Depends(get_db),
+async def export_history(request: Request, fmt: str = "json",
+                         format_: str | None = Query(None, alias="format"),
+                         db: AsyncSession = Depends(get_db),
                          current_user: User | None = Depends(require_permission("export"))):
     """RAG-033/034 (PLAN-006 Fase 6): exporta el historial de consultas del usuario
     desde audit_log (JSON | TXT | CSV) — 100% trazable, sin dashboard extra."""
@@ -296,6 +315,7 @@ async def export_history(request: Request, fmt: str = "json", db: AsyncSession =
         for r in rows
     ]
     from fastapi.responses import Response
+    fmt = format_ or fmt
     if fmt == "json":
         payload = _json.dumps(items, ensure_ascii=False, default=str)
         return Response(content=payload, media_type="application/json",

@@ -281,3 +281,49 @@ def build_dashboard(db, driver: str = "http") -> dict[str, Any]:
     En tests se monkeypatea; en producción lee con SQL async.
     """
     raise NotImplementedError("build_dashboard se implemente on wire (ver tests B9)")
+
+
+async def compute_and_snapshot(db, k) -> dict:
+    """Compute + snapshot + alerta dedup para un KPI (usado por el endpoint
+    /bsc/kpis/{code}/compute y por la tareaCelery kpi.snapshot_all)."""
+    from datetime import datetime
+    from sqlalchemy import select
+    from src.database import Kpi, KpiSnapshot, Alert
+
+    from src.api.v1 import bsc as bsc_api  # _collect_inputs vive ahí
+
+    data = await bsc_api._collect_inputs(db)
+    value: float
+    formula = ""
+    if k.query_type == "keyword_coverage":
+        value, formula = compute_keyword_coverage(data["synonyms"], data["chunks"])
+    elif k.query_type == "query_stats":
+        stats = compute_query_stats(data["audit_rows"])
+        if k.code == "QUERY_WITH_EVIDENCE":
+            value = stats["pct_with_evidence"]
+        elif k.code == "QUERY_NO_EVIDENCE":
+            value = stats["without_evidence"]
+        else:
+            value = stats["total"]
+        formula = "con/sin evidencia desde audit_log"
+    else:
+        raise ValueError(f"query_type no soportado: {k.query_type}")
+
+    period = _period()
+    snap = KpiSnapshot(
+        kpi_id=k.id, value=value,
+        period_start=datetime.fromisoformat(period["start"]),
+        period_end=datetime.fromisoformat(period["end"]),
+    )
+    db.add(snap)
+    state = state_for(k, value)
+    open_alerts = (
+        await db.execute(select(Alert).where(Alert.kpi_id == k.id, Alert.status == "open"))
+    ).scalars().all()
+    created = []
+    ensure_alert(k, state, value, created)
+    for a in created:
+        if not open_alerts:
+            db.add(a)
+    await db.commit()
+    return {"code": k.code, "value": value, "state": state, "formula": formula}

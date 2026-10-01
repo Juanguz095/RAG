@@ -124,6 +124,27 @@ class ChunkKeyword(Base):
     match_count = Column(Integer, default=1, nullable=False)
 
 
+class Conversation(Base):
+    """Chat con historial (RAG-028/029, PLAN-007 F5)."""
+    __tablename__ = "conversations"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String(200), nullable=False, default="Nueva conversacion")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Message(Base):
+    """Mensaje de una conversación; user|assistant, con sources JSONB."""
+    __tablename__ = "messages"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False, index=True)
+    role = Column(String(20), nullable=False)
+    content = Column(Text, nullable=False)
+    sources = Column(JSONB, default=list)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Proposal(Base):
     """Corrección humana sobre un chunk (RAG-032 — PLAN-006 Fase 5).
     status: proposed | approved | rejected. Al aprobar, el chunk se
