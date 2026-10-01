@@ -148,3 +148,84 @@ def test_auth_required_default_true(monkeypatch):
         assert s.AUTH_REQUIRED is True
     finally:
         importlib.reload(cfg)
+
+
+def test_borrar_documento_pending_no_se_bloquea(client, monkeypatch):
+    """PLAN-007 fix: pending (subido y atascado sin pipeline) SÍ puede borrarse."""
+    import uuid as _u
+    import test_fase2_rbac_auditoria as _f2
+    from src.database import get_db, Document
+
+    users = []
+    base = _f2._make_fake_db(users)
+    _f2._override_db(client, base)
+    _f2._register(client, username="pp9")
+    h = _f2._auth(client, "pp9")
+
+    doc = Document(id=_u.uuid4(), filename=_u.uuid4().hex + ".pdf",
+                   original_name="atascado.pdf", file_hash=_u.uuid4().hex,
+                   mime_type="application/pdf", file_size=10, status="pending")
+
+    class FakeDbDel:
+        def __init__(self):
+            self.calls = 0
+
+        async def execute(self, stmt, *a, **k):
+            self.calls += 1
+            if self.calls == 1:
+                return await base.execute(stmt, *a, **k)
+            return _f2._Res(doc)
+
+        async def commit(self):
+            pass
+
+        async def refresh(self, o):
+            return o
+
+        def add(self, o):
+            pass
+
+        async def delete(self, o):
+            pass
+
+        def __getattr__(self, n):
+            return getattr(base, n)
+
+    from fastapi.testclient import TestClient as _TC  # (solo para linter)
+    client.app.dependency_overrides[get_db] = FakeDbDel
+    r = client.delete(f"/api/v1/documents/{doc.id}", headers=h)
+    assert r.status_code in (200, 204), r.text[:200]
+
+
+def test_borrar_documento_processing_se_bloquea(client, monkeypatch):
+    """El bloqueo REAL del pipeline sigue en pie."""
+    import uuid as _u
+    import test_fase2_rbac_auditoria as _f2
+    from src.database import get_db, Document
+
+    users = []
+    base = _f2._make_fake_db(users)
+    _f2._override_db(client, base)
+    _f2._register(client, username="ppa")
+    h = _f2._auth(client, "ppa")
+
+    doc = Document(id=_u.uuid4(), filename=_u.uuid4().hex + ".pdf",
+                   original_name="proc.pdf", file_hash=_u.uuid4().hex,
+                   mime_type="application/pdf", file_size=10, status="processing")
+
+    class FakeDbDel:
+        def __init__(self):
+            self.calls = 0
+
+        async def execute(self, stmt, *a, **k):
+            self.calls += 1
+            if self.calls == 1:
+                return await base.execute(stmt, *a, **k)
+            return _f2._Res(doc)
+
+        def __getattr__(self, n):
+            return getattr(base, n)
+
+    client.app.dependency_overrides[get_db] = FakeDbDel
+    r = client.delete(f"/api/v1/documents/{doc.id}", headers=h)
+    assert r.status_code == 409

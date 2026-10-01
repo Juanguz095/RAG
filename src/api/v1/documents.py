@@ -11,7 +11,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
@@ -19,7 +19,8 @@ from fastapi import Request
 from src.config import get_settings
 from src.api.deps import get_current_user, require_admin
 from src.core.permissions import require_permission
-from src.database import Document, Chunk, User, get_db
+from src.database import (Document, Chunk, ChunkKeyword, Keyword, Message,
+                          Proposal, User, get_db)
 from src.services.audit import audit
 from src.schemas.document import DocumentListResponse, DocumentResponse
 
@@ -158,10 +159,14 @@ async def reprocess_document(
 
 def _doc_item(d: Document, include_meta: bool = False) -> DocumentResponse:
     meta = None
+    timings = None
+    raw = d.metadata_ or {}
+    # WP1: exponer timings SIEMPRE (listado y detalle) — "Procesado en X s".
+    if raw.get("timings"):
+        timings = raw["timings"]
     if include_meta:
         # only light keys; avoid shipping word_boxes on list/detail
-        raw = d.metadata_ or {}
-        meta = {k: v for k, v in raw.items() if k not in ("word_boxes", "extracted_data")} or None
+        meta = {k: v for k, v in raw.items() if k not in ("word_boxes", "extracted_data", "timings")} or None
     return DocumentResponse(
         id=d.id,
         filename=d.filename,
@@ -173,6 +178,7 @@ def _doc_item(d: Document, include_meta: bool = False) -> DocumentResponse:
         created_at=d.created_at,
         processed_at=d.processed_at,
         metadata_=meta,
+        timings=timings,
     )
 
 
@@ -307,15 +313,38 @@ async def delete_document(
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    if doc.status in ("processing", "pending"):
+    # Solo bloquear si el PIPELINE está corriendo de verdad. Un 'pending'
+    # (subido pero nunca procesado — task perdida u OCR no iniciado) debe
+    # poder borrarse: es el caso de un upload atascado.
+    if doc.status == "processing":
         raise HTTPException(status_code=409, detail="Cannot delete document while processing")
 
     pdf_path = UPLOAD_DIR / doc.filename
+
+    # Limpieza FK-safe: chunk_keywords NO tiene ON DELETE CASCADE, hay que
+    # limpiarla (y las propuestas quedaban huérfanas) antes de borrar chunks.
+    chunk_ids = (
+        select(Chunk.id).where(Chunk.document_id == doc_id)
+    )
+    await db.execute(
+        delete(ChunkKeyword).where(ChunkKeyword.chunk_id.in_(chunk_ids))
+    )
+    await db.execute(
+        delete(Proposal).where(
+            Proposal.chunk_id.in_(chunk_ids),
+            Proposal.status != "approved",
+        )
+    )
+
     if pdf_path.exists():
         pdf_path.unlink()
 
     await db.delete(doc)
     await db.commit()
-    await audit(db, current_user, "delete", resource_type="document", resource_id=str(doc_id),
-                detail={"original_name": doc.original_name})
-    await db.commit()
+    try:
+        await audit(db, current_user, "delete", resource_type="document", resource_id=str(doc_id),
+                    detail={"original_name": doc.original_name})
+        await db.commit()
+    except Exception:
+        import logging; logging.getLogger(__name__).exception("delete doc audit fallo")
+        raise

@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # ── OCR en cascada (PLAN-001 Fase 1) ──
     OCR_ENGINE: str = os.getenv("OCR_ENGINE", "tesseract")  # tesseract|paddle|surya
-    OCR_DPI: int = 200
+    OCR_DPI: int = 150
     OCR_MAX_PAGES_PADDLE: int = 0  # 0 = sin límite
 
     # ── Re-ranking (PLAN-001 Fase 3) ──

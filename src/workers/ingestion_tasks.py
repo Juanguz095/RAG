@@ -244,6 +244,13 @@ def process_document_task(self, document_id: str, pdf_path: str):
             if word_boxes:
                 meta = {**meta, "word_boxes": {str(k): v for k, v in word_boxes.items()}}
             meta.pop("extract_queued", None)
+            # WP1: exponer los tiempos de proceso al usuario (RAG-036 "medir
+            # tiempo de carga rápida").
+            meta["timings"] = {
+                "ocr_s": round(ocr_elapsed, 1),
+                "embed_s": round(emb_elapsed, 1),
+                "total_s": round(time.time() - t0, 1),
+            }
 
             doc.metadata_ = meta  # new dict each time — JSONB dirty tracking
             doc.status = "completed"

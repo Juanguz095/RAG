@@ -13,7 +13,14 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-OCR_DPI = 200
+# Resolver el DPI desde config (no hardcodear): PERFIL/OCR_DPI controla la
+# velocidad del OCR. Si falla (tests sin config), cae a un default seguro.
+try:
+    from src.config import get_settings
+
+    OCR_DPI = int(get_settings().OCR_DPI)
+except Exception:  # pragma: no cover
+    OCR_DPI = 150
 
 
 # ── Fase 1 (PLAN-001): OCR en cascada con motores seleccionables ─────
@@ -25,19 +32,30 @@ def detect_and_fix_rotation(img_or_arr):
     Usa el clasificador de PaddleOCR si está disponible; con Tesseract
     entra por OSD (orientation and script detection). Devuelve el ángulo
     detectado y la imagen ya rotada a orientación correcta.
+
+    WP1: el OSD corre sobre una versión reducida (~500px) de la página —
+    detectar 180° no necesita la imagen a 200 DPI y ahorra ~50% de la
+    pasada de rotación por página (la "2ª pasada de Tesseract").
     """
     import numpy as np
 
     if isinstance(img_or_arr, Image.Image):
-        arr = np.array(img_or_arr.convert("L"))
+        img = img_or_arr
+        arr = np.array(img.convert("L"))
     else:
-        arr = img_or_arr
+        arr = np.asarray(img_or_arr)
+        img = Image.fromarray(arr)
 
-    # intento 1: OLED/OSD de tesseract (rápido, sin cargar Paddle)
+    # intento 1: OSD de tesseract (rápido, sin cargar Paddle) a baja resolución
     try:
         import pytesseract
 
-        osd = pytesseract.image_to_osd(Image.fromarray(arr), output_type=pytesseract.Output.DICT)
+        thumb = img.convert("L")
+        w, h = thumb.size
+        scale = 500.0 / max(w, h)
+        if scale < 1.0:
+            thumb = thumb.resize((max(1, int(w * scale)), max(1, int(h * scale))))
+        osd = pytesseract.image_to_osd(thumb, output_type=pytesseract.Output.DICT)
         angle = int(osd.get("rotate", 0)) % 360
     except Exception:
         angle = 0

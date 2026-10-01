@@ -66,8 +66,9 @@ services:
   worker:
     build: .
     image: rag-api:latest
-    command: celery -A src.workers.celery_app worker -Q ingest,celery -c 1 --loglevel=info
+    command: celery -A src.workers.celery_app worker -Q ingest,celery -c 1 --pool=solo --loglevel=info
     mem_limit: 4.5g
+    memswap_limit: 7g   # permite swap: el child BGE-M3 pega ~3GB y cgroup NO lo mata
     volumes:
       - ./src:/app/src
       - ./models:/models:ro
@@ -93,6 +94,7 @@ services:
     image: rag-api:latest
     command: celery -A src.workers.celery_app worker -Q extract -c 1 --loglevel=info
     mem_limit: 2g
+    cpu_shares: 256   # WP1: mitad de CPU relativa que el worker de ingesta (default 1024)
     volumes:
       - ./src:/app/src
       - ./models:/models:ro

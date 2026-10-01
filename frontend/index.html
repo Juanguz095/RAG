@@ -352,10 +352,6 @@
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
             Dashboard
           </div>
-          <div class="nav-item" onclick="newConversation()">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM7 9h10v2H7V9zm6 5H7v-2h6v2z"/></svg>
-            <span id="chat-conv-label">Nueva conversación</span>
-          </div>
           <div class="nav-item" onclick="downloadHistory()">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4L10 13.2V3h2zM5 19h14v2H5z"/></svg>
             Historial
@@ -604,7 +600,7 @@
         list.innerHTML = '<div class="empty-state"><p>No hay documentos</p></div>';
         return;
       }
-      const sig = docs.map(d => d.id + ':' + d.status + ':' + (d.total_chunks || 0)).join('|');
+      const sig = docs.map(d => d.id + ':' + d.status + ':' + (d.total_chunks || 0) + ':' + (d.timings && d.timings.total_s || 0)).join('|');
       if (sig === docsRenderSig) return;
       docsRenderSig = sig;
       list.innerHTML = docs.map(d => {
@@ -612,7 +608,8 @@
         if (d.status === 'processing') {
           statusHtml = '<div class="doc-spinner"></div> Procesando...';
         } else if (d.status === 'completed') {
-          statusHtml = '<span class="doc-status-dot completed"></span> ' + d.total_chunks + ' fragments';
+          const t = (d.timings && d.timings.total_s) ? ' · ' + Math.round(d.timings.total_s) + 's' : '';
+          statusHtml = '<span class="doc-status-dot completed"></span> ' + d.total_chunks + ' fragments' + t;
         } else if (d.status === 'error') {
           statusHtml = '<span class="doc-status-dot error"></span> Error';
         } else {
@@ -801,7 +798,12 @@
       try {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         const url = API + '/api/v1/documents/' + docId + '/pdf';
-        const loadingTask = pdfjsLib.getDocument({url: url, withCredentials: false});
+        // El PDF exige JWT (gate ON): fetch del blob con Authorization y
+        // pdf.js sobre el ArrayBuffer (query-param auth NO permitido).
+        const blobResp = await fetch(url, { headers: authHeaders() });
+        if (!blobResp.ok) throw new Error('HTTP ' + blobResp.status);
+        const pdfData = await blobResp.arrayBuffer();
+        const loadingTask = pdfjsLib.getDocument({ data: pdfData });
         pdfDoc = await loadingTask.promise;
         if (gen !== pdfLoadGeneration) return;
         pdfTotalPages = pdfDoc.numPages;
