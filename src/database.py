@@ -124,6 +124,22 @@ class ChunkKeyword(Base):
     match_count = Column(Integer, default=1, nullable=False)
 
 
+class Proposal(Base):
+    """Corrección humana sobre un chunk (RAG-032 — PLAN-006 Fase 5).
+    status: proposed | approved | rejected. Al aprobar, el chunk se
+    re-chunk/inline y se re-encola la indexación."""
+    __tablename__ = "proposals"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chunk_id = Column(UUID(as_uuid=True), ForeignKey("chunks.id"), nullable=False, index=True)
+    proposer = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    status = Column(String(20), default="proposed", nullable=False)
+    reviewer = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    comment = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class AuditLog(Base):
     """Registro append-only de eventos sensibles (RAG-039/040, PLAN-004)."""
     __tablename__ = "audit_log"
