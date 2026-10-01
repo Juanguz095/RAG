@@ -91,6 +91,38 @@ async def upload_document(
     return {"id": str(doc.id), "status": "processing", "message": "Document uploaded, processing in background"}
 
 
+@router.post("/{doc_id}/reprocess", status_code=202, response_model=dict)
+async def reprocess_document(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(require_permission("documents:upload")),
+):
+    """RAG-013 (PLAN-006 Fase 4): re-chunk + re-embed + re-index + re-keywords.
+
+    Idempotente: reusa el PDF original en disco (fuente de verdad) y pisa los
+    chunks/keywords existentes del documento.
+    """
+    res = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = res.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    pdf_path = UPLOAD_DIR / f"{doc.file_hash}.pdf"
+    if not pdf_path.exists():
+        raise HTTPException(status_code=409, detail="Original PDF missing, re-upload required")
+    doc.status = "pending"
+    await db.commit()
+    from src.workers.ingestion_tasks import enqueue_process_document
+    try:
+        enqueue_process_document(str(doc.id), str(pdf_path))
+    except Exception as exc:
+        logger.error(f"Reprocess enqueue failed for {doc.id}: {exc}")
+        raise HTTPException(status_code=503, detail="Processing queue unavailable") from exc
+    await audit(db, current_user, "update", resource_type="document", resource_id=str(doc.id),
+                detail={"action": "reprocess"})
+    await db.commit()
+    return {"id": str(doc.id), "status": "processing", "message": "Reprocess enqueued"}
+
+
 def _doc_item(d: Document, include_meta: bool = False) -> DocumentResponse:
     meta = None
     if include_meta:

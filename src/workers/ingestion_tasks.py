@@ -7,11 +7,11 @@ import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from src.config import get_settings
-from src.database import Chunk, Document
+from src.database import Chunk, ChunkKeyword, Document, Keyword
 from src.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -207,6 +207,16 @@ def process_document_task(self, document_id: str, pdf_path: str):
                 f"(ocr={ocr_elapsed:.1f}s emb_wait={emb_elapsed:.1f}s)"
             )
 
+            # Etapa keywords (PLAN-006 Fase 4 — RAG-017/018): sección/fragmento
+            # en metadata ANTES de crear los Chunk de BD (se propagan ya con ella).
+            from src.services.keywords import enrich_section, extract_keyword_matches
+
+            for chunk, _emb in paired:
+                enrich_section(chunk)
+            res_kw = db.execute(select(Keyword).where(Keyword.is_active == True))  # noqa: E712
+            kw_rows = res_kw.scalars().all() if hasattr(res_kw, "scalars") else list(res_kw)
+            catalog = {kw.term: [kw.term] for kw in kw_rows}
+
             db_chunks = [
                 Chunk(
                     document_id=doc.id,
@@ -221,6 +231,14 @@ def process_document_task(self, document_id: str, pdf_path: str):
             ]
             db.add_all(db_chunks)
             doc.total_chunks = len(db_chunks)
+            # flush para obtener chunk.id antes de los FK:
+            db.flush()
+            for dbc in db_chunks:
+                counts = extract_keyword_matches(dbc, catalog)
+                for term, n in counts.items():
+                    kw = next((k for k in kw_rows if k.term == term), None)
+                    if kw is not None:
+                        db.add(ChunkKeyword(chunk_id=dbc.id, keyword_id=kw.id, match_count=n))
 
             meta = doc.metadata_ or {}
             if word_boxes:

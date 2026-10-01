@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     Column, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text,
     create_engine, text,
 )
@@ -100,6 +101,27 @@ class MedicalSynonym(Base):
     synonym = Column(String(200), nullable=False, index=True)
     category = Column(String(50))
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Keyword(Base):
+    """Catálogo de keywords del corpus (RAG-016, PLAN-006 Fase 4)."""
+    __tablename__ = "keywords"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    term = Column(String(200), nullable=False, unique=True, index=True)
+    category = Column(String(100))
+    description = Column(String(500))
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ChunkKeyword(Base):
+    """N:M chunk↔keyword con conteo de matches por chunk (RAG-018)."""
+    __tablename__ = "chunk_keywords"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chunk_id = Column(UUID(as_uuid=True), ForeignKey("chunks.id"), nullable=False, index=True)
+    keyword_id = Column(UUID(as_uuid=True), ForeignKey("keywords.id"), nullable=False, index=True)
+    match_count = Column(Integer, default=1, nullable=False)
 
 
 class AuditLog(Base):

@@ -24,6 +24,9 @@ class ChunkResult(BaseModel):
     chunk_index: int = 0
     relevance: int = 0
     matched_terms: list[str] = []
+    # PLAN-006 Fase 4 (RAG-019/RAG-026): sección y fragmento contextual
+    section: str | None = None
+    fragment: str | None = None
 
 
 class QueryResponse(BaseModel):
