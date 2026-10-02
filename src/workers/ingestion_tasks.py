@@ -51,11 +51,23 @@ class _StreamingEmbedder:
         self._entries: list[tuple[int, object]] = []
         self._next_index = 0
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="embed")
+        self._edad: int | None = None  # WP8: edad extraída antes de anonimizar
 
     def add_page(self, page_num: int, text: str) -> None:
         text = (text or "").strip()
         if not text:
             return
+        # WP8: extraer edad de la fecha de nacimiento ANTES de anonimizar
+        # (la fecha se enmascara luego; RAG-038 se mantiene). La edad se
+        # guarda como metadato estructurado, nunca la fecha en claro.
+        if self._edad is None:
+            from src.services.anonymizer import compute_age, extract_birth_date
+
+            birth = extract_birth_date(text)
+            if birth:
+                age = compute_age(birth)
+                if age is not None:
+                    self._edad = age
         # RAG-038 (PLAN-006 Fase 3): anonimizar datos sensibles ANTES de
         # trocear/emebedar (CP-008). El PDF original NO se modifica.
         from src.services.anonymizer import anonymize_text
@@ -78,6 +90,10 @@ class _StreamingEmbedder:
         if page_chunks:
             fut = self._pool.submit(_encode_batch, [c.content for c in page_chunks])
             for i, c in enumerate(page_chunks):
+                # WP8: propagar la edad extraída al metadato estructurado del
+                # chunk (la fecha de nacimiento nunca se persiste en claro).
+                if self._edad is not None:
+                    c.chunk_metadata = {**(c.chunk_metadata or {}), "edad": self._edad}
                 self._entries.append((self._next_index + i, c, fut, i))
             self._next_index += len(page_chunks)
         self._current_text = ""

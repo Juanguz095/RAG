@@ -56,7 +56,7 @@ async def list_audit(
 
 @router.get("/export")
 async def export_audit(
-    request,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: object = Depends(require_permission("audit:read")),
     action: str | None = Query(None),
@@ -70,7 +70,6 @@ async def export_audit(
     la exportación, la recomendación más pedida por los grupos (03, 05, 01).
     Filtros: rango de fechas, usuario y tipo de evento.
     """
-    from fastapi import Request
     from fastapi.responses import Response
 
     fmt = (request.query_params.get("format") or "csv").lower()

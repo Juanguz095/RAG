@@ -49,3 +49,41 @@ def anonymize_text(text: str) -> tuple[str, int]:
         text, k = re.subn(pattern, LABELS[kind], text)
         n += k
     return text, n
+
+
+def extract_birth_date(text: str) -> str | None:
+    """Extrae la fecha de nacimiento ANTES de anonimizar (WP8, PLAN-010).
+
+    Devuelve el match crudo (ej. "nacido: 14/03/1985") o None. NO se persiste
+    en claro: el llamador calcula la edad y descarta la fecha. RAG-038/CP-008
+    se mantienen intactos porque anonymize_text() se sigue ejecutando después.
+    """
+    for kind, pattern in PATTERNS:
+        if kind == "fecha_nacimiento":
+            m = re.search(pattern, text)
+            if m:
+                return m.group(0)
+    return None
+
+
+def compute_age(birth_date_str: str, today=None) -> int | None:
+    """Edad = año actual − año de nacimiento (fórmula estándar, CP-006).
+
+    Acepta fechas dd/mm/yyyy o dd-mm-yyyy (y año de 2 dígitos). Si no se puede
+    parsear, devuelve None (el motor se abstiene o responde sin edad).
+    """
+    import datetime as _dt
+
+    m = re.search(r"(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})", birth_date_str)
+    if not m:
+        return None
+    day, month, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    if year < 100:
+        year += 1900 if year > 30 else 2000  # heurística de 2 dígitos
+    try:
+        birth = _dt.date(year, month, day)
+    except ValueError:
+        return None
+    today = today or _dt.date.today()
+    age = today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+    return age if age >= 0 else None

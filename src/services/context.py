@@ -17,7 +17,11 @@ def build_context(results: list[RetrievalResult]) -> str:
     total_tokens = 0
     max_tokens = settings.CONTEXT_MAX_CHARS // 3
     for i, r in enumerate(results):
-        chunk_text = f"[{i + 1}] Documento: {r.document_name} | Paginas: {r.page_numbers}\n{r.content}"
+        # WP8: inyectar la edad del chunk (si se extrajo durante la ingesta)
+        # para que el LLM pueda responder consultas de edad (CP-006).
+        edad = (getattr(r, "chunk_metadata", None) or {}).get("edad")
+        edad_str = f" | Edad: {edad} anios" if edad is not None else ""
+        chunk_text = f"[{i + 1}] Documento: {r.document_name} | Paginas: {r.page_numbers}{edad_str}\n{r.content}"
         chunk_tokens = _estimate_tokens(chunk_text)
         if total_tokens + chunk_tokens > max_tokens:
             remaining = max_tokens - total_tokens

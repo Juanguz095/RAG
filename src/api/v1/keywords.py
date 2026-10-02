@@ -19,18 +19,39 @@ router = APIRouter(prefix="/api/v1/keywords", tags=["keywords"])
 class KeywordIn(BaseModel):
     term: str
     category: str | None = None
+    domain: str | None = None  # WP2: alias de "category" (dominio clínico)
     description: str | None = None
 
 
 @router.get("")
-async def list_keywords(db=Depends(get_db), _u=Depends(require_permission("keywords:read"))):
-    res = await db.execute(select(Keyword).where(Keyword.is_active == True))  # noqa: E712
+async def list_keywords(
+    category: str | None = None,
+    db=Depends(get_db),
+    _u=Depends(require_permission("keywords:read")),
+):
+    q = select(Keyword).where(Keyword.is_active == True)  # noqa: E712
+    if category:
+        q = q.where(Keyword.category == category)
+    res = await db.execute(q)
     rows = res.scalars().all() if hasattr(res, "scalars") else list(res)
     return [
         {"id": str(k.id), "term": k.term, "category": k.category,
-         "description": k.description, "is_active": bool(k.is_active)}
+         "domain": k.category, "description": k.description, "is_active": bool(k.is_active)}
         for k in rows
     ]
+
+
+@router.get("/domains")
+async def list_domains(db=Depends(get_db), _u=Depends(require_permission("keywords:read"))):
+    """WP2: dominios distintos del catálogo (agrupación por dominio)."""
+    res = await db.execute(
+        select(Keyword.category)
+        .where(Keyword.is_active == True, Keyword.category.isnot(None))  # noqa: E712
+        .distinct()
+        .order_by(Keyword.category)
+    )
+    rows = res.scalars().all() if hasattr(res, "scalars") else list(res)
+    return [r for r in rows if r]
 
 
 @router.post("", status_code=201)
@@ -38,22 +59,24 @@ async def create_keyword(body: KeywordIn, db=Depends(get_db), _u=Depends(require
     term = body.term.strip()
     if not term:
         raise HTTPException(422, "term vacío")
+    category = body.category or body.domain  # WP2: domain es alias de category
     res = await db.execute(select(Keyword).where(Keyword.term == term))
     existing = res.scalar_one_or_none()
     if existing and existing.is_active:
         raise HTTPException(409, "keyword duplicada")
     if existing:
         existing.is_active = True
+        existing.category = category or existing.category
         await db.commit()
         await db.refresh(existing)
         return {"id": str(existing.id), "term": existing.term, "category": existing.category,
-                "description": existing.description, "is_active": True}
-    kw = Keyword(term=term, category=body.category, description=body.description, is_active=True)
+                "domain": existing.category, "description": existing.description, "is_active": True}
+    kw = Keyword(term=term, category=category, description=body.description, is_active=True)
     db.add(kw)
     await db.commit()
     await db.refresh(kw)
     return {"id": str(kw.id), "term": kw.term, "category": kw.category,
-            "description": kw.description, "is_active": True}
+            "domain": kw.category, "description": kw.description, "is_active": True}
 
 
 @router.delete("/{kid}")
