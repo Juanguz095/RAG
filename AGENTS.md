@@ -12,9 +12,9 @@ Este es un proyecto académico: se evalúa contra una rúbrica (`documentos/RUBR
 
 El sistema tiene dos flujos principales:
 
-**Cargar y entender documentos.** El usuario sube un PDF por la interfaz web. La API guarda el archivo, detecta duplicados por hash y deja el procesamiento en manos de un worker de Celery (para no bloquear la subida). El worker extrae el texto con PyMuPDF; si una página viene vacía o escaneada, la pasa por Tesseract (OCR) obteniendo incluso las coordenadas de cada palabra, que luego sirven para resaltar texto en el visor. Después trocea el texto en fragmentos (*chunks*) por oraciones, calcula un vector de embeddings de 384 dimensiones con un modelo MiniLM multilingüe, y lo indexa todo en PostgreSQL con pgvector.
+**Cargar y entender documentos.** El usuario sube un PDF por la interfaz web. La API guarda el archivo, detecta duplicados por hash y deja el procesamiento en manos de un worker de Celery (para no bloquear la subida). El worker extrae el texto con PyMuPDF; si una página viene vacía o escaneada, la pasa por Tesseract (OCR) obteniendo incluso las coordenadas de cada palabra, que luego sirven para resaltar texto en el visor. Después trocea el texto en fragmentos (*chunks*) por oraciones, calcula un vector de embeddings de 1024 dimensiones con **BGE-M3**, y lo indexa todo en PostgreSQL con pgvector.
 
-**Consultar.** El usuario escribe una pregunta. El sistema expande términos con sinónimos médicos, hace una búsqueda *híbrida* — semántica (por similitud de vectores) + léxica (por palabras clave, con índices de trigramas) — combina ambos resultados con fusión RRF, arma un contexto con las fuentes etiquetadas y se lo pasa a un LLM local (TinyLlama, corriendo sobre llama-cpp). La respuesta llega con las citas: documento, página, chunk y un snippet verificable. Si no hay evidencia suficiente, el sistema debe abstenerse en vez de inventar.
+**Consultar.** El usuario escribe una pregunta. El sistema expande términos con sinónimos médicos, hace una búsqueda *híbrida* — semántica (por similitud de vectores) + léxica (por palabras clave, con índices de trigramas) — combina ambos resultados con fusión RRF, arma un contexto con las fuentes etiquetadas y se lo pasa a un LLM local (**Qwen2.5-1.5B-Instruct**, corriendo sobre llama-cpp). La respuesta llega con las citas: documento, página, chunk y un snippet verificable. Si no hay evidencia suficiente, el sistema debe abstenerse en vez de inventar.
 
 ## Tecnologías
 
@@ -32,7 +32,7 @@ Todo el backend vive en `src/`: la app y el arranque en `main.py`, la configurac
 
 Los requisitos oficiales viven en `documentos/` (la spec del profesor, la rúbrica y los casos de prueba) y son la fuente de verdad: ante cualquier duda sobre qué debe hacer el sistema, manda ese texto, no la intuición. El análisis del estado actual y la hoja de ruta están en `docs/`. Los planes de trabajo para los agentes de desarrollo están en `planes/` (ver más abajo).
 
-> **Advertencia:** el `README.md` describe un stack que no es el implementado (habla de Surya, BGE-M3, MedAlpaca, MinIO para originales…). El código real usa PyMuPDF + Tesseract, MiniLM 384-d, TinyLlama y disco local. Si algo no coincide, confía en el código.
+> **Advertencia:** el `README.md` describe un stack que no es el implementado (habla de Surya, BGE-M3, MedAlpaca, MinIO para originales…). El código real usa PyMuPDF + Tesseract, BGE-M3 1024-d, Qwen2.5-1.5B y disco local. Si algo no coincide, confía en el código (y mira `HANDOFF.md`).
 
 ## Cómo ejecutarlo y probarlo
 
