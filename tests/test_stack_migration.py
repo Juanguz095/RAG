@@ -157,4 +157,4 @@ def test_llm_model_path_config_in_find_model():
 
     s = get_settings()
     assert hasattr(s, "LLM_MODEL_PATH")
-    # apuntar a un path inexistente con LLM_MODEL_PATH vacío mantiene fallback TinyLlama
+    # con LLM_MODEL_PATH vacío, _find_model cae al QWEN_MODEL_PATH por defecto

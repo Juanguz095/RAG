@@ -124,7 +124,7 @@ docs/                # veredicto_final, bench_velocidad, despliegue_free_tier, a
 planes/              # PLAN-001…011 (planes de implementación)
 documentos/          # spec del profesor + rúbrica + casos de prueba (FUENTE DE VERDAD)
 datossinteticos/     # 3 PDFs demo generados
-models/              # GGUF (qwen, tinyllama, medalpaca) — no se commitea
+models/              # GGUF del LLM (solo qwen2.5-1.5b, 1.1 GB) — no se commitea
 hf_cache/            # caché HuggingFace — no se commitea
 uploads/             # originales subidos — no se commitea
 ```

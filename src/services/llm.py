@@ -27,11 +27,12 @@ def _find_model() -> str:
     candidates = [
         settings.LLM_MODEL_PATH,
         settings.QWEN_MODEL_PATH,
-        os.path.join(settings.MODEL_DIR, "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"),
     ]
     for p in candidates:
         if p and os.path.isfile(p):
             return p
+    # Último recurso: cualquier GGUF presente en MODEL_DIR (permite cambiar de
+    # modelo soltando el archivo en models/ sin tocar config).
     model_dir = Path(settings.MODEL_DIR)
     for f in model_dir.glob("*.gguf"):
         return str(f)
