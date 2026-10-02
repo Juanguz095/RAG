@@ -87,6 +87,41 @@ def compute_query_stats(audit_rows: Iterable[Any]) -> dict[str, Any]:
     }
 
 
+def compute_usage_stats(audit_rows: Iterable[Any]) -> dict[str, Any]:
+    """WP11 (PLAN-010): métricas de uso por usuario/cliente desde audit_log.
+
+    Sin tablas nuevas: agrupa por `username` los eventos `query` (consultas)
+    y `upload` (documentos) de la bitácora. Actividad por periodo = 30 días.
+    """
+    from collections import Counter
+
+    queries: Counter = Counter()
+    docs: Counter = Counter()
+    active_users: set[str] = set()
+    for r in audit_rows:
+        u = getattr(r, "username", None) or "anonimo"
+        a = getattr(r, "action", "")
+        if a == "query":
+            queries[u] += 1
+            active_users.add(u)
+        elif a == "upload":
+            docs[u] += 1
+            active_users.add(u)
+    total_q = sum(queries.values())
+    total_d = sum(docs.values())
+    n_users = max(1, len(active_users))
+    return {
+        "queries_per_user": dict(queries),
+        "docs_per_user": dict(docs),
+        "active_users": len(active_users),
+        "total_queries": total_q,
+        "total_uploads": total_d,
+        "queries_per_user_avg": round(total_q / n_users, 2),
+        "docs_per_user_avg": round(total_d / n_users, 2),
+        "period": _period(),
+    }
+
+
 def _period() -> dict[str, str]:
     end = datetime.utcnow()
     start = end - timedelta(days=30)
@@ -306,6 +341,18 @@ async def compute_and_snapshot(db, k) -> dict:
         else:
             value = stats["total"]
         formula = "con/sin evidencia desde audit_log"
+    elif k.query_type == "usage_stats":
+        # WP11: métricas de uso por usuario desde audit_log
+        stats = compute_usage_stats(data["audit_rows"])
+        if k.code == "USAGE_ACTIVE_USERS":
+            value = float(stats["active_users"])
+        elif k.code == "USAGE_QUERIES_PER_USER":
+            value = float(stats["queries_per_user_avg"])
+        elif k.code == "USAGE_DOCS_PER_USER":
+            value = float(stats["docs_per_user_avg"])
+        else:
+            value = float(stats["total_queries"])
+        formula = "uso por usuario/cliente desde audit_log"
     else:
         raise ValueError(f"query_type no soportado: {k.query_type}")
 

@@ -26,6 +26,37 @@ except Exception:  # pragma: no cover
 # ── Fase 1 (PLAN-001): OCR en cascada con motores seleccionables ─────
 
 
+def _quick_ocr_score(img) -> float:
+    """Confianza media de Tesseract en una orientación (para elegir 0° vs 180°).
+
+    Corre a resolución reducida (~700px): solo se usa como desempate cuando el
+    OSD no es concluyente, así que no penaliza el caso normal.
+    """
+    try:
+        import pytesseract
+
+        thumb = img.convert("L")
+        w, h = thumb.size
+        scale = 700.0 / max(w, h)
+        if scale < 1.0:
+            thumb = thumb.resize((max(1, int(w * scale)), max(1, int(h * scale))))
+        data = pytesseract.image_to_data(
+            thumb, lang="spa+eng", config="--psm 3 --oem 1",
+            output_type=pytesseract.Output.DICT,
+        )
+    except Exception:
+        return 0.0
+    confs = []
+    for c, t in zip(data.get("conf", []), data.get("text", [])):
+        try:
+            ci = int(c)
+        except (TypeError, ValueError):
+            continue
+        if str(t).strip() and ci > 0:
+            confs.append(ci)
+    return (sum(confs) / len(confs)) if confs else 0.0
+
+
 def detect_and_fix_rotation(img_or_arr):
     """Clasifica el ángulo de una página (0/90/180/270) y corrige la imagen.
 
@@ -36,6 +67,11 @@ def detect_and_fix_rotation(img_or_arr):
     WP1: el OSD corre sobre una versión reducida (~500px) de la página —
     detectar 180° no necesita la imagen a 200 DPI y ahorra ~50% de la
     pasada de rotación por página (la "2ª pasada de Tesseract").
+
+    WP3 (PLAN-009 Fase A): si el OSD falla (o da 0° con poca confianza), se
+    aplica un fallback determinista que compara el OCR a 0° y 180° y se queda
+    con el de mayor confianza. Esto recupera las páginas que hoy se indexaban
+    como basura invertida (p. ej. `VIONY3438…`). El fallo deja de ser silencioso.
     """
     import numpy as np
 
@@ -47,6 +83,9 @@ def detect_and_fix_rotation(img_or_arr):
         img = Image.fromarray(arr)
 
     # intento 1: OSD de tesseract (rápido, sin cargar Paddle) a baja resolución
+    angle = 0
+    osd_conf = None
+    osd_failed = False
     try:
         import pytesseract
 
@@ -57,8 +96,25 @@ def detect_and_fix_rotation(img_or_arr):
             thumb = thumb.resize((max(1, int(w * scale)), max(1, int(h * scale))))
         osd = pytesseract.image_to_osd(thumb, output_type=pytesseract.Output.DICT)
         angle = int(osd.get("rotate", 0)) % 360
-    except Exception:
-        angle = 0
+        try:
+            osd_conf = float(osd.get("orientation_conf", 0.0))
+        except (TypeError, ValueError):
+            osd_conf = None
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"OSD de rotacion fallo ({e}); probando 0/180 determinista")
+        osd_failed = True
+
+    # WP3: fallback determinista cuando OSD no concluye (excepción o 0° con
+    # confianza baja). Solo en esos casos paga el doble OCR rápido.
+    if osd_failed or (angle == 0 and osd_conf is not None and osd_conf < 1.0):
+        s0 = _quick_ocr_score(img)
+        rot180 = img.rotate(180, expand=True)
+        s180 = _quick_ocr_score(rot180)
+        if s180 > s0 * 1.15 and s180 > 0:
+            logger.info(f"Rotacion 180 detectada por fallback (score {s180:.1f} > {s0:.1f})")
+            return 180, rot180
+        return 0, img
+
     if angle:
         arr = np.rot90(arr, k=angle // 90)
     return angle, Image.fromarray(arr)

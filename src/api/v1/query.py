@@ -202,7 +202,9 @@ async def query_rag(
     cited = {int(n) for n in _re.findall(r"\[(\d+)\]", answer_text)}
     grounded = bool(cited) and all(1 <= n <= len(sources) for n in cited)
     # Reintento único con recordatorio de citar (PLAN-006 Fase 2):
+    retried = False
     if not grounded:
+        retried = True
         timed2 = generate_answer_timed(
             context + "\n\nIMPORTANTE: cita las fuentes con [1], [2]... correspondientes.",
             req.query,
@@ -213,6 +215,13 @@ async def query_rag(
         cited = {int(n) for n in _re.findall(r"\[(\d+)\]", answer_text)}
         grounded = bool(cited) and all(1 <= n <= len(sources) for n in cited)
         timed = timed2
+    _gen_s = (timed["generation_ms"] or 0) / 1000.0
+    logger.info(
+        "LLM[retry=%s] prompt_eval=%.0fms gen=%.0fms tokens=%d (%.2f tok/s) llm_ms=%.0f",
+        retried, timed["prompt_eval_ms"], timed["generation_ms"],
+        timed["tokens_generated"], (timed["tokens_generated"] / _gen_s) if _gen_s > 0 else 0.0,
+        llm_ms,
+    )
 
     # CP-007 (RAG-026): la respuesta SIEMPRE incluye la referencia al
     # documento y ubicación de las fuentes usadas; si el LLM no citó inline
@@ -386,6 +395,45 @@ async def search_only(
     filtered = results
     if req.page_filter is not None:
         filtered = [r for r in filtered if req.page_filter in (r.page_numbers or [])]
+
+    # WP9 (PLAN-010): filtros por metadatos (edad desde WP8, dominio de keywords)
+    if req.age_min is not None or req.age_max is not None:
+        def _age_ok(r) -> bool:
+            edad = (r.chunk_metadata or {}).get("edad")
+            if edad is None:
+                return False
+            try:
+                e = int(edad)
+            except (TypeError, ValueError):
+                return False
+            if req.age_min is not None and e < req.age_min:
+                return False
+            if req.age_max is not None and e > req.age_max:
+                return False
+            return True
+
+        filtered = [r for r in filtered if _age_ok(r)]
+
+    if req.domain:
+        from sqlalchemy import select as _select
+
+        from src.database import ChunkKeyword, Keyword
+
+        ids = [r.chunk_id for r in filtered]
+        allowed: set[str] = set()
+        if ids:
+            try:
+                rows = (
+                    await db.execute(
+                        _select(ChunkKeyword.chunk_id)
+                        .join(Keyword, Keyword.id == ChunkKeyword.keyword_id)
+                        .where(ChunkKeyword.chunk_id.in_(ids), Keyword.category == req.domain)
+                    )
+                ).scalars().all()
+                allowed = {str(x) for x in rows}
+            except Exception:
+                allowed = set()
+        filtered = [r for r in filtered if r.chunk_id in allowed]
 
     return SearchResponse(
         results=_results_to_sources(filtered[:req.top_k]),

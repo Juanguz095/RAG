@@ -150,6 +150,11 @@
   </div>
 
   <div class="section">
+    <h2>Uso por usuario / cliente (30 días)</h2>
+    <div id="usage-metrics" style="font-size:14px;line-height:1.9"></div>
+  </div>
+
+  <div class="section">
     <h2>Heatmap documento × palabra clave (frecuencia)</h2>
     <div class="heatmap"><table id="heatmap-table"></table></div>
     <div style="color:var(--muted);font-size:11px;margin-top:8px">
@@ -239,7 +244,7 @@ let KPIS = [];
 
 async function loadAll() {
   try { /* links ahora blob-download con auth */ } catch {}
-  await Promise.all([loadKpis(), loadGaps(), loadQueries(), loadScore(), loadPlans()]);
+  await Promise.all([loadKpis(), loadGaps(), loadQueries(), loadScore(), loadPlans(), loadUsage()]);
   render();
 }
 async function loadKpis() {
@@ -259,6 +264,9 @@ async function loadScore() {
 }
 async function loadPlans() {
   try { window.PLANS = (await jf(API + '/api/v1/bsc/action-plans')).items; } catch { window.PLANS = []; }
+}
+async function loadUsage() {
+  try { window.USAGE = await jf(API + '/api/v1/bsc/usage'); } catch { window.USAGE = {}; }
 }
 
 async function computeAll() {
@@ -318,6 +326,18 @@ function render() {
   (window.QM || []).forEach(k => {
     q.innerHTML += '<div>' + (k.emoji || '') + ' <b>' + k.name + ':</b> ' + (k.last_value != null ? k.last_value : '·') + ' ' + (k.unit || '') + '</div>';
   });
+  // usage por usuario (WP11)
+  const us = window.USAGE || {};
+  const um = document.getElementById('usage-metrics');
+  let uh = '<div>👥 Usuarios activos: <b>' + (us.active_users != null ? us.active_users : '·') + '</b></div>';
+  uh += '<div>🔎 Consultas totales: <b>' + (us.total_queries != null ? us.total_queries : '·') + '</b> · 📄 Documentos subidos: <b>' + (us.total_uploads != null ? us.total_uploads : '·') + '</b></div>';
+  const qpu = us.queries_per_user || {};
+  const dpu = us.docs_per_user || {};
+  const users = [...new Set([...Object.keys(qpu), ...Object.keys(dpu)])];
+  for (const u of users) {
+    uh += '<div style="color:var(--muted)">· <b>' + u + '</b>: ' + (qpu[u] ?? 0) + ' consultas, ' + (dpu[u] ?? 0) + ' documentos</div>';
+  }
+  um.innerHTML = uh;
   // score
   const sv = window.SCORE || {};
   document.getElementById('score-val').textContent = sv.value != null ? sv.value : '·';

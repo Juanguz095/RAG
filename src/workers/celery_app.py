@@ -49,7 +49,11 @@ def preload_models(**kwargs):
     if "ingest" in queues or "celery" in queues:
         from src.services.embeddings import preload
         preload()
-    if "extract" in queues or "celery" in queues:
+    # El LLM (~1 GB) solo lo usa la cola extract. La cola `celery` (tareas
+    # periódicas BSC/limpieza) NO lo necesita: precargarlo desperdicia RAM y
+    # compite con el LLM de la API durante las consultas. Se carga perezosamente
+    # si alguna tarea extract lo requiere.
+    if "extract" in queues:
         from src.services.llm import _get_llm
         _get_llm()
     log.info("All models preloaded")

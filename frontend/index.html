@@ -303,6 +303,23 @@
     .hamburger:hover { background:var(--accent-soft); color:var(--accent); }
     .sidebar-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:59; }
     @media (max-width: 900px) { .sidebar-backdrop.show { display:block; } }
+
+    /* WP4 (PLAN-010 · RAG-036): breakpoints 1024 / 768 / 480 (móvil 320px) */
+    @media (max-width: 1024px) {
+      .center-column { padding:16px; }
+    }
+    @media (max-width: 768px) {
+      .center-column { padding:12px; }
+      .patient-grid { grid-template-columns:1fr; }
+      h1 { font-size:20px; } h2 { font-size:17px; } h3 { font-size:15px; }
+      .chat-input-row { flex-direction:column; }
+    }
+    @media (max-width: 480px) {
+      .center-column { padding:8px; }
+      h1 { font-size:18px; } h2 { font-size:15px; }
+      .mobile-topbar { padding:8px 10px; }
+      .nav-item { padding:8px 10px; font-size:13px; }
+    }
   </style>
 </head>
 <body>
@@ -361,6 +378,10 @@
           <div class="nav-item" onclick="downloadAudit()">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 13h8v2H8zm0 4h8v2H8z"/></svg>
             Bitácora
+          </div>
+          <div class="nav-item" onclick="downloadAll()">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
+            Descargar todo
           </div>
           <div class="nav-item" onclick="setView(this,'bsc')">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2v10h-2zm6 0h2v7h-2zM5 7h2v13H5zM3 21V3h2v16h16v2z"/></svg>
@@ -1794,32 +1815,50 @@
       else { sb.classList.remove('open'); bd.classList.remove('show'); }
     }
 
+    // ── COLA DE DESCARGAS (WP10: 2 en paralelo con alternancia) ──
+    const _dlQueue = [];
+    let _dlActive = 0;
+    const _DL_MAX_PARALLEL = 2;
+
+    function enqueueDownload(url, filename) {
+      _dlQueue.push({ url, filename });
+      _pumpDownloads();
+    }
+
+    function _pumpDownloads() {
+      while (_dlActive < _DL_MAX_PARALLEL && _dlQueue.length) {
+        const { url, filename } = _dlQueue.shift();
+        _dlActive++;
+        fetch(url, { headers: authHeaders() })
+          .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+          .then(b => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(b);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showToast('Descargado ' + filename, 'success');
+          })
+          .catch(e => showToast('Error ' + filename + ': ' + e.message, 'error'))
+          .finally(() => { _dlActive--; _pumpDownloads(); });
+      }
+    }
+
     function downloadHistory() {
       const fmt = (sessionStorage.getItem('hist_fmt') || 'csv');
-      fetch(API + '/api/v1/query/export/history?format=' + fmt, {headers: authHeaders()})
-        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
-        .then(b => {
-          const url = URL.createObjectURL(b);
-          const a = document.createElement('a');
-          a.href = url; a.download = 'historial.' + fmt; a.click();
-          URL.revokeObjectURL(url);
-          showToast('Historial descargado (' + fmt + ')', 'success');
-        })
-        .catch(e => showToast('No se pudo descargar el historial: ' + e.message, ''));
+      enqueueDownload(API + '/api/v1/query/export/history?format=' + fmt, 'historial.' + fmt);
     }
 
     function downloadAudit() {
       const fmt = (sessionStorage.getItem('audit_fmt') || 'csv');
-      fetch(API + '/api/v1/audit/export?format=' + fmt, {headers: authHeaders()})
-        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
-        .then(b => {
-          const url = URL.createObjectURL(b);
-          const a = document.createElement('a');
-          a.href = url; a.download = 'bitacora.' + fmt; a.click();
-          URL.revokeObjectURL(url);
-          showToast('Bitácora descargada (' + fmt + ')', 'success');
-        })
-        .catch(e => showToast('No se pudo descargar la bitácora (requiere rol auditor/admin): ' + e.message, 'error'));
+      enqueueDownload(API + '/api/v1/audit/export?format=' + fmt, 'bitacora.' + fmt);
+    }
+
+    function downloadAll() {
+      enqueueDownload(API + '/api/v1/query/export/history?format=csv', 'historial.csv');
+      enqueueDownload(API + '/api/v1/audit/export?format=csv', 'bitacora.csv');
+      enqueueDownload(API + '/api/v1/audit/export?format=xlsx', 'bitacora.xlsx');
+      showToast('Descargando 3 archivos (2 en paralelo)...', 'success');
     }
 
     function setView(el, view) {

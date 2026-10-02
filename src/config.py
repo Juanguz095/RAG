@@ -34,7 +34,7 @@ class Settings(BaseSettings):
         "/models/qwen2.5-1.5b-instruct-q4_k_m.gguf",
     )
     LLM_MODEL_PATH: str = os.getenv("LLM_MODEL_PATH", "")
-    EMBED_MODEL_NAME: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    EMBED_MODEL_NAME: str = os.getenv("EMBED_MODEL_NAME", "BAAI/bge-m3")
 
     # ── OCR en cascada (PLAN-001 Fase 1) ──
     OCR_ENGINE: str = os.getenv("OCR_ENGINE", "tesseract")  # tesseract|paddle|surya
@@ -79,8 +79,10 @@ class Settings(BaseSettings):
                 self.CONTEXT_MAX_CHARS = 2500
             if self.RERANK_TOP_K > 5:
                 self.RERANK_TOP_K = 5
-            if self.RERANK_CANDIDATES > 8:
-                self.RERANK_CANDIDATES = 8
+            # El cross-encoder es el segundo mayor coste en CPU (~4-5 s/par):
+            # 5 candidatos bastan para las citas y recortan ~40% del rerank.
+            if self.RERANK_CANDIDATES > 5:
+                self.RERANK_CANDIDATES = 5
         # perfil calidad: defaults ya declarados arriba
 
 

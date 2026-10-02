@@ -57,9 +57,13 @@ def _get_llm():
 
 def _build_prompt(context: str, question: str) -> str:
     # TinyLlama-chat v1.0: <|system|>...</s><|user|>...</s><|assistant|>
+    # El recordatorio de citar va AL FINAL (recencia): los modelos pequeños
+    # ignoran la instrucción del system prompt y sin esto se dispara una
+    # segunda generación (retry de grounding) que duplica el tiempo del LLM.
     return (
         f"<|system|>\n{SYSTEM_PROMPT}</s>\n"
-        f"<|user|>\nCONTEXTO MEDICO:\n{context}\n\nPREGUNTA: {question}</s>\n"
+        f"<|user|>\nCONTEXTO MEDICO:\n{context}\n\nPREGUNTA: {question}\n"
+        f"IMPORTANTE: cita cada afirmacion con [1], [2]... (fuentes numeradas del contexto).</s>\n"
         f"<|assistant|>\n"
     )
 

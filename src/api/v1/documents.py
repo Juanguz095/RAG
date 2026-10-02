@@ -6,7 +6,7 @@ import math
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -157,13 +157,23 @@ async def reprocess_document(
     return {"id": str(doc.id), "status": "processing", "message": "Reprocess enqueued"}
 
 
-def _doc_item(d: Document, include_meta: bool = False) -> DocumentResponse:
+def _doc_item(d: Document, include_meta: bool = False,
+              timings: dict | None = None) -> DocumentResponse:
     meta = None
-    timings = None
-    raw = d.metadata_ or {}
+    raw: Any = {}
+    # METADATA no debe disparar carga perezosa: el listado/detalle hacen defer()
+    # (JSONB con word_boxes es pesado). Si está diferido, no lo tocamos.
+    try:
+        from sqlalchemy import inspect as sa_inspect
+
+        if "metadata_" not in sa_inspect(d).unloaded:
+            raw = d.metadata_ or {}
+    except Exception:
+        # objeto no-ORM (fakes de tests): leer directo, no hay carga perezosa
+        raw = getattr(d, "metadata_", None) or {}
     # WP1: exponer timings SIEMPRE (listado y detalle) — "Procesado en X s".
-    if raw.get("timings"):
-        timings = raw["timings"]
+    if timings is None:
+        timings = raw.get("timings")
     if include_meta:
         # only light keys; avoid shipping word_boxes on list/detail
         meta = {k: v for k, v in raw.items() if k not in ("word_boxes", "extracted_data", "timings")} or None
@@ -191,7 +201,9 @@ async def list_documents(
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(get_current_user),
 ):
-    query = select(Document).options(defer(Document.metadata_))
+    query = select(
+        Document, Document.metadata_["timings"].label("timings")
+    ).options(defer(Document.metadata_))
     count_query = select(func.count(Document.id))
 
     if status_filter:
@@ -207,10 +219,10 @@ async def list_documents(
     query = query.order_by(Document.created_at.desc())
     query = query.offset((page - 1) * size).limit(size)
     result = await db.execute(query)
-    docs = result.scalars().all()
+    rows = result.all()
 
     return DocumentListResponse(
-        documents=[_doc_item(d) for d in docs],
+        documents=[_doc_item(d, timings=t) for (d, t) in rows],
         total=total,
         page=page,
         pages=pages,
@@ -224,12 +236,14 @@ async def get_document(
     current_user: User | None = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(Document).where(Document.id == doc_id).options(defer(Document.metadata_))
+        select(Document, Document.metadata_["timings"].label("timings"))
+        .where(Document.id == doc_id).options(defer(Document.metadata_))
     )
-    doc = result.scalar_one_or_none()
-    if not doc:
+    row = result.first()
+    if not row:
         raise HTTPException(status_code=404, detail="Document not found")
-    return _doc_item(doc)
+    doc, t = row
+    return _doc_item(doc, timings=t)
 
 
 @router.get("/{doc_id}/pdf")

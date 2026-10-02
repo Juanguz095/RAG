@@ -138,6 +138,23 @@ async def get_score(
             "nota": "Indicador de gestión; NO es probabilidad de verdad de la IA"}
 
 
+@router.get("/usage")
+async def usage(
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(require_permission("bsc:read")),
+):
+    """WP11 (PLAN-010): métricas de uso por usuario/cliente desde audit_log."""
+    from src.database import AuditLog
+
+    rows = (
+        await db.execute(
+            select(AuditLog).where(AuditLog.action.in_(["query", "upload"]))
+            .order_by(desc(AuditLog.created_at)).limit(1000)
+        )
+    ).scalars().all()
+    return bsc_svc.compute_usage_stats(rows)
+
+
 # ------------------------------------------------------------------ mutations
 
 @router.post("/kpis/{code}/compute")
@@ -293,7 +310,7 @@ async def _collect_inputs(db: AsyncSession) -> dict:
 
     arows = (
         await db.execute(
-            select(AuditLog).where(AuditLog.action == "query")
+            select(AuditLog).where(AuditLog.action.in_(["query", "upload"]))
             .order_by(desc(AuditLog.created_at)).limit(500)
         )
     ).scalars().all()

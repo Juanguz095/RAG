@@ -50,6 +50,10 @@ class SearchRequest(BaseModel):
     top_k: int = Field(default=10, ge=1, le=30)
     doc_filter: Optional[UUID] = None
     page_filter: Optional[int] = Field(default=None, ge=0)
+    # WP9 (PLAN-010): filtros por metadatos
+    age_min: Optional[int] = Field(default=None, ge=0, le=130)
+    age_max: Optional[int] = Field(default=None, ge=0, le=130)
+    domain: Optional[str] = Field(default=None, max_length=100)
 
 
 class SearchResponse(BaseModel):

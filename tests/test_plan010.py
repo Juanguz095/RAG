@@ -309,3 +309,124 @@ def test_wp8_build_context_inyecta_edad():
     )
     ctx2 = build_context([r2])
     assert "Edad:" not in ctx2
+
+
+# ── WP11: métricas de uso por usuario (BSC) ────────────────────────────────
+
+
+def test_wp11_compute_usage_stats_desglosa_por_usuario():
+    from types import SimpleNamespace
+
+    from src.services.bsc import compute_usage_stats
+
+    rows = [
+        SimpleNamespace(username="admin", action="query", detail={"sources": [1]}),
+        SimpleNamespace(username="admin", action="query", detail={"sources": []}),
+        SimpleNamespace(username="medico", action="query", detail={"sources": [1]}),
+        SimpleNamespace(username="admin", action="upload", detail=None),
+        SimpleNamespace(username="medico", action="upload", detail=None),
+    ]
+    s = compute_usage_stats(rows)
+    assert s["active_users"] == 2
+    assert s["total_queries"] == 3
+    assert s["total_uploads"] == 2
+    assert s["queries_per_user"] == {"admin": 2, "medico": 1}
+    assert s["docs_per_user"] == {"admin": 1, "medico": 1}
+    assert s["queries_per_user_avg"] == 1.5
+
+
+def test_wp11_compute_usage_stats_sin_eventos():
+    from src.services.bsc import compute_usage_stats
+
+    s = compute_usage_stats([])
+    assert s["active_users"] == 0
+    assert s["total_queries"] == 0
+    assert s["queries_per_user_avg"] == 0.0
+
+
+# ── WP9: filtros por metadatos en la búsqueda ──────────────────────────────
+
+
+def test_wp9_search_request_acepta_filtros_metadata():
+    from src.schemas.query import SearchRequest
+
+    r = SearchRequest(query="dolor toracico", age_min=30, age_max=50, domain="cardiologia")
+    assert r.age_min == 30
+    assert r.age_max == 50
+    assert r.domain == "cardiologia"
+
+    r2 = SearchRequest(query="x")
+    assert r2.age_min is None and r2.age_max is None and r2.domain is None
+
+
+def test_wp9_search_request_valida_rango_edad():
+    import pytest
+    from pydantic import ValidationError
+
+    from src.schemas.query import SearchRequest
+
+    with pytest.raises(ValidationError):
+        SearchRequest(query="x", age_min=-1)
+    with pytest.raises(ValidationError):
+        SearchRequest(query="x", age_max=200)
+
+
+# ── WP3 (PLAN-009 Fase A): rotación robusta sin Paddle ─────────────────────
+
+
+def _fake_pytesseract_osd_falla(monkeypatch):
+    import sys
+    import types
+
+    fake = types.ModuleType("pytesseract")
+
+    def _raise(*_a, **_k):
+        raise RuntimeError("OSD no disponible")
+
+    fake.image_to_osd = _raise
+    fake.Output = types.SimpleNamespace(DICT="DICT")
+    monkeypatch.setitem(sys.modules, "pytesseract", fake)
+
+
+def test_wp3_rotation_fallback_elige_180(monkeypatch):
+    from PIL import Image
+
+    from src.services import ocr
+
+    _fake_pytesseract_osd_falla(monkeypatch)
+    calls = {"n": 0}
+
+    def fake_score(_img):
+        calls["n"] += 1
+        return 10.0 if calls["n"] == 1 else 60.0  # 0° malo, 180° bueno
+
+    monkeypatch.setattr(ocr, "_quick_ocr_score", fake_score)
+
+    img = Image.new("RGB", (200, 100), "white")
+    angle, fixed = ocr.detect_and_fix_rotation(img)
+    assert angle == 180
+    assert fixed.size == (200, 100)
+    assert calls["n"] == 2  # comparó ambas orientaciones
+
+
+def test_wp3_rotation_fallback_conserva_0_si_no_mejora(monkeypatch):
+    from PIL import Image
+
+    from src.services import ocr
+
+    _fake_pytesseract_osd_falla(monkeypatch)
+    monkeypatch.setattr(ocr, "_quick_ocr_score", lambda _img: 50.0)
+
+    img = Image.new("RGB", (200, 100), "white")
+    angle, fixed = ocr.detect_and_fix_rotation(img)
+    assert angle == 0
+    assert fixed.size == (200, 100)
+
+
+def test_wp3_quick_ocr_score_es_float_sin_tesseract():
+    from PIL import Image
+
+    from src.services import ocr
+
+    s = ocr._quick_ocr_score(Image.new("RGB", (50, 50), "white"))
+    assert isinstance(s, float)

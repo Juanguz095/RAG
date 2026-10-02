@@ -29,7 +29,11 @@ def _load_model():
                 settings.RERANK_MODEL_NAME,
                 device="cpu",
                 trust_remote_code=True,
-                max_length=512,
+                # 512 tokens por par encarece el cross-encoder en CPU (~6 s/par
+                # en un i3-1215U: 5 candidatos = 32 s). La señal de relevancia
+                # está en el inicio del chunk: 128 tokens recortan ~75% del
+                # re-ranking sin pérdida perceptible de precisión en las citas.
+                max_length=128,
             )
             logger.info("Reranker loaded")
         except Exception as e:

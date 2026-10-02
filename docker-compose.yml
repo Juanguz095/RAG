@@ -36,7 +36,9 @@ services:
     image: rag-api:latest
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000
     ports: ["8000:8000"]
-    mem_limit: 3g
+    # BGE-M3 (2.2 GB) + reranker (0.6 GB) + Qwen LLM (1 GB) conviven en la API
+    # durante cada consulta: 3g provocaba thrashing (queries de 90-110 s).
+    mem_limit: 4.5g
     volumes:
       - ./src:/app/src
       - ./frontend:/app/frontend:ro
@@ -54,10 +56,11 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-BAAI/bge-m3}
       - OCR_ENGINE=${OCR_ENGINE:-tesseract}
-      - PERFIL=${PERFIL:-calidad}
+      - PERFIL=${PERFIL:-rapido}
       - LLM_MODEL_PATH=${LLM_MODEL_PATH:-}
-      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-256}
-      - CONTEXT_MAX_CHARS=${CONTEXT_MAX_CHARS:-4000}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-160}
+      - LLM_N_BATCH=${LLM_N_BATCH:-1024}
+      - CONTEXT_MAX_CHARS=${CONTEXT_MAX_CHARS:-2500}
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
@@ -84,7 +87,7 @@ services:
       - AUTH_REQUIRED=false
       - WORKER_QUEUES=ingest,celery
       - OCR_ENGINE=${OCR_ENGINE:-tesseract}
-      - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-BAAI/bge-m3}
       - RERANK_MODEL_NAME=${RERANK_MODEL_NAME:-BAAI/bge-reranker-base}
     depends_on: [redis, postgres, minio]
 
