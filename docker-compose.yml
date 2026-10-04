@@ -54,8 +54,13 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - AUTH_REQUIRED=${AUTH_REQUIRED:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-BAAI/bge-m3}
-      - OCR_ENGINE=${OCR_ENGINE:-tesseract}
+      - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      - OCR_LANG=${OCR_LANG:-spa}
+      - OCR_DETECT_ROTATION=${OCR_DETECT_ROTATION:-true}
+      - OCR_ENGINE=${OCR_ENGINE:-auto}
+      - OCR_AUTO_MIN_SCORE=${OCR_AUTO_MIN_SCORE:-60}
+      - OCR_LOW_CONF_THRESHOLD=${OCR_LOW_CONF_THRESHOLD:-45}
+      - OCR_ROTATION_MIN_SCORE=${OCR_ROTATION_MIN_SCORE:-60}
       - PERFIL=${PERFIL:-rapido}
       - LLM_MODEL_PATH=${LLM_MODEL_PATH:-}
       - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-160}
@@ -86,8 +91,13 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - AUTH_REQUIRED=false
       - WORKER_QUEUES=ingest,celery
-      - OCR_ENGINE=${OCR_ENGINE:-tesseract}
-      - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-BAAI/bge-m3}
+      - OCR_ENGINE=${OCR_ENGINE:-auto}
+      - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      - OCR_LANG=${OCR_LANG:-spa}
+      - OCR_DETECT_ROTATION=${OCR_DETECT_ROTATION:-true}
+      - OCR_AUTO_MIN_SCORE=${OCR_AUTO_MIN_SCORE:-60}
+      - OCR_LOW_CONF_THRESHOLD=${OCR_LOW_CONF_THRESHOLD:-45}
+      - OCR_ROTATION_MIN_SCORE=${OCR_ROTATION_MIN_SCORE:-60}
       - RERANK_MODEL_NAME=${RERANK_MODEL_NAME:-BAAI/bge-reranker-base}
     depends_on: [redis, postgres, minio]
 

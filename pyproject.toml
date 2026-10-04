@@ -37,3 +37,5 @@ dependencies = [
 [project.optional-dependencies]
 # OCR alternativo (OCR_ENGINE=paddle): pesado; no va en la imagen base.
 paddle = ["paddlepaddle>=2.6", "paddleocr>=2.7,<3"]
+# OCR ML para manuscritos (OCR_ENGINE=auto/rapidocr): ligero (ONNX), offline.
+rapidocr = ["rapidocr>=3.7,<4.0", "onnxruntime>=1.18"]

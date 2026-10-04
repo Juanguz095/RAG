@@ -22,6 +22,15 @@ SYSTEM_PROMPT = (
     "Puedes usar terminologia medica. Si no tienes informacion suficiente, lo indicas."
 )
 
+# Prompt conversacional: charla general (saludos, cortesia) SIN exigir citas.
+SYSTEM_PROMPT_CHAT = (
+    "Eres un asistente medico amable y conversacional para profesionales de salud. "
+    "Respondes en espanol de forma natural, breve (1-3 frases) y cordial. "
+    "Puedes saludar, agradecer y conversar con normalidad. "
+    "Si el usuario quiere informacion de sus documentos, invitalo a hacer una "
+    "pregunta concreta sobre el contenido. No inventes datos clinicos."
+)
+
 
 def _find_model() -> str:
     candidates = [
@@ -86,6 +95,28 @@ def generate_answer(
     )
     text = output["choices"][0]["text"].strip()
     return text
+
+
+def generate_chat_reply(history: str, question: str, max_tokens: int = 160) -> str:
+    """Respuesta conversacional (charla) sin contexto RAG ni citas.
+
+    `history` es el texto plano de los ultimos turnos (puede ir vacio).
+    """
+    llm = _get_llm()
+    hist = f"[Historial de la conversacion]\n{history}\n\n" if history else ""
+    prompt = (
+        f"<|system|>\n{SYSTEM_PROMPT_CHAT}</s>\n"
+        f"<|user|>\n{hist}MENSAJE: {question}</s>\n"
+        f"<|assistant|>\n"
+    )
+    output = llm(
+        prompt=prompt,
+        max_tokens=max_tokens,
+        temperature=0.6,
+        top_p=0.9,
+        stop=["</s>", "<|user|>", "<|system|>"],
+    )
+    return output["choices"][0]["text"].strip()
 
 
 def generate_answer_timed(

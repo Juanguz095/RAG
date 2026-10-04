@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     # Chat con memoria (RAG-028, PLAN-007 F5)
     CHAT_MEMORY_N: int = int(os.getenv("CHAT_MEMORY_N", "4"))
+    # Chat conversacional: saludos/cortesia se responden sin RAG ni citas.
+    CHAT_CONVERSATIONAL: bool = os.getenv("CHAT_CONVERSATIONAL", "true").lower() == "true"
 
     MODEL_DIR: str = "/models"
     QWEN_MODEL_PATH: str = os.getenv(
@@ -34,12 +36,34 @@ class Settings(BaseSettings):
         "/models/qwen2.5-1.5b-instruct-q4_k_m.gguf",
     )
     LLM_MODEL_PATH: str = os.getenv("LLM_MODEL_PATH", "")
-    EMBED_MODEL_NAME: str = os.getenv("EMBED_MODEL_NAME", "BAAI/bge-m3")
+    # MiniLM multilingüe 384-d: ~35x más rápido que BGE-M3 en CPU (misma familia
+    # de recuperación; el re-ranking por cross-encoder se mantiene). Para volver
+    # a BGE-M3: EMBED_MODEL_NAME=BAAI/bge-m3 + migrar la columna a vector(1024).
+    EMBED_MODEL_NAME: str = os.getenv(
+        "EMBED_MODEL_NAME", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    )
 
-    # ── OCR en cascada (PLAN-001 Fase 1) ──
-    OCR_ENGINE: str = os.getenv("OCR_ENGINE", "tesseract")  # tesseract|paddle|surya
+    # ── OCR en cascada (PLAN-001 Fase 1 / PLAN-009 Fase B) ──
+    # auto = Tesseract primero y, si la página sale con baja confianza (manuscrita
+    # o degradada), re-OCR con RapidOCR (PP-OCRv5 latin). tesseract|paddle|rapidocr
+    # fuerzan un único motor (rollback). Default: auto.
+    OCR_ENGINE: str = os.getenv("OCR_ENGINE", "auto")  # auto|tesseract|paddle|rapidocr
     OCR_DPI: int = 150
+    # Idioma de Tesseract. "spa" es ~2x más rápido que "spa+eng" (carga y corre
+    # ambos traineddata). Subir a "spa+eng" si hay documentos en inglés.
+    OCR_LANG: str = os.getenv("OCR_LANG", "spa")
+    # Detección de rotación (OSD + fallback 0/180). Cuesta pasadas extra de OCR;
+    # poner "false" acelera cuando se sabe que los PDFs vienen derechos.
+    OCR_DETECT_ROTATION: bool = os.getenv("OCR_DETECT_ROTATION", "true").lower() == "true"
     OCR_MAX_PAGES_PADDLE: int = 0  # 0 = sin límite
+    # Cascada `auto`: si la confianza media de Tesseract (0-100) cae por debajo
+    # de este umbral, se re-OCR la página con RapidOCR (manuscritos).
+    OCR_AUTO_MIN_SCORE: float = float(os.getenv("OCR_AUTO_MIN_SCORE", "60"))
+    # Chunks con confianza OCR por debajo de este umbral se marcan low_confidence.
+    OCR_LOW_CONF_THRESHOLD: float = float(os.getenv("OCR_LOW_CONF_THRESHOLD", "45"))
+    # Rotación (fallback 0/180): solo girar si la versión girada se lee bien de
+    # verdad (score absoluto). Evita falsos positivos en páginas con poco texto.
+    OCR_ROTATION_MIN_SCORE: float = float(os.getenv("OCR_ROTATION_MIN_SCORE", "60"))
 
     # ── Re-ranking (PLAN-001 Fase 3) ──
     RERANK_MODEL_NAME: str = "BAAI/bge-reranker-base"

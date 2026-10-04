@@ -57,6 +57,13 @@ def _get_model():
             device="cpu",
             trust_remote_code=True,
         )
+        # Cota de longitud: evita que un chunk anómalo (p.ej. OCR sin puntuación)
+        # dispare el coste cuadrático de la atención. BGE-M3 por defecto = 8192.
+        try:
+            if getattr(_model, "max_seq_length", None) and _model.max_seq_length > 512:
+                _model.max_seq_length = 512
+        except Exception:
+            pass
         logger.info(f"Embeddings loaded in {time.time()-t0:.1f}s")
     return _model
 
