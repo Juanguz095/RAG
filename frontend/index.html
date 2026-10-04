@@ -80,6 +80,8 @@
     .nav-item.active svg { opacity:1; }
     .sidebar-docs { flex:1; overflow-y:auto; padding:8px 12px; border-top:1px solid var(--border-light); margin-top:8px; }
     .sidebar-docs-title { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; padding:8px 4px 6px; }
+    .sidebar-domain-filter { width:100%; font:inherit; font-size:12px; padding:6px 8px; margin:0 0 6px; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--text-secondary); cursor:pointer; }
+    .sidebar-domain-filter:focus { outline:none; border-color:var(--accent); }
     .doc-item { padding:10px 12px; border-radius:var(--radius-sm); cursor:pointer; margin-bottom:2px; transition:var(--transition); border:1px solid transparent; display:flex; align-items:center; gap:8px; }
     .doc-item:hover { background:var(--accent-soft); border-color:var(--border); }
     .doc-item.active { background:var(--accent-light); border-color:var(--accent); }
@@ -153,6 +155,19 @@
     .patient-field label { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:2px; }
     .patient-field span { font-size:14px; font-weight:500; color:var(--text-primary); }
     .patient-field span.empty { color:var(--text-muted); font-style:italic; font-weight:400; }
+    .patient-status { font-size:11px; font-weight:600; color:var(--text-muted); margin-left:auto; }
+    .patient-disclaimer { font-size:11px; color:var(--text-muted); margin-top:10px; line-height:1.4; border-top:1px solid var(--border-light); padding-top:8px; }
+    .patient-edit { display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; }
+    .patient-edit .uf-field input, .patient-edit .uf-field select { width:100%; }
+    .patient-progress { padding:4px 0; }
+    .patient-progress-label { font-size:13px; font-weight:600; color:var(--text-primary); }
+    .patient-bar { position:relative; height:6px; border-radius:3px; background:var(--border-light); margin-top:10px; overflow:hidden; }
+    .patient-bar i { position:absolute; left:0; top:0; bottom:0; background:linear-gradient(90deg, var(--accent), #e8956e); border-radius:3px; transition:width 1s linear; }
+    .patient-progress-sub { font-size:11px; color:var(--text-muted); margin-top:6px; }
+    .patient-spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:pspin 0.8s linear infinite; vertical-align:-2px; }
+    @keyframes pspin { to { transform:rotate(360deg); } }
+    .patient-retry { color:var(--accent); font-weight:600; cursor:pointer; }
+    .patient-retry:hover { text-decoration:underline; }
 
     /* DIAGNOSIS */
     .diagnosis-box { background:var(--accent-light); border:1px solid rgba(199,91,57,0.15); border-radius:var(--radius-sm); padding:12px 16px; margin-bottom:12px; }
@@ -179,6 +194,8 @@
     .filter-select:focus { outline:none; border-color:var(--accent); }
     .search-stats { font-size:12px; color:var(--text-muted); margin-bottom:12px; }
     .search-hint { font-size:12px; color:var(--text-muted); background:var(--bg-page); border:1px dashed var(--border); border-radius:var(--radius-sm); padding:8px 10px; margin-bottom:10px; }
+    .search-synonyms { font-size:11.5px; color:var(--text-muted); margin-bottom:8px; line-height:1.4; }
+    .search-synonyms b { color:var(--accent); font-weight:600; }
     .suggestions-label { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px; }
     .occ-header { font-size:13px; font-weight:600; color:var(--text-primary); margin-bottom:10px; line-height:1.4; }
     .occ-header strong { color:var(--accent); }
@@ -222,6 +239,7 @@
     /* PDF text layer for highlights */
     .pdf-page-wrapper { position:relative; flex-shrink:0; margin-left:auto; margin-right:auto; }
     .pdf-page-wrapper.page-match { outline:3px solid var(--accent); outline-offset:2px; border-radius:4px; }
+    .pdf-hl-overlay { mix-blend-mode: multiply; }
     .pdf-text-layer { position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; opacity:0.25; line-height:1.0; pointer-events:none; }
     .pdf-text-layer > span { color:transparent; position:absolute; white-space:pre; transform-origin:0% 0%; }
     .pdf-page-marker { position:absolute; bottom:8px; right:8px; background:var(--accent); color:white; font-size:11px; font-weight:600; padding:3px 8px; border-radius:10px; z-index:10; pointer-events:none; opacity:0; transition:opacity 0.3s; }
@@ -229,39 +247,64 @@
     .pdf-placeholder { text-align:center; padding:20px; color:var(--text-muted); width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; }
 
     /* Chat collapsible */
-    .chat-section { border-top:1px solid var(--border); flex-shrink:0; transition:height 0.25s ease; overflow:hidden; }
+    .chat-section { border-top:1px solid var(--border); flex-shrink:0; display:flex; flex-direction:column; transition:height 0.25s ease; overflow:hidden; }
     .chat-section.collapsed { height:44px; }
     .chat-section.expanded { height:220px; }
-    .chat-header { display:flex; align-items:center; justify-content:space-between; padding:0 12px; height:44px; cursor:pointer; user-select:none; flex-shrink:0; }
+    .chat-header { display:flex; align-items:center; justify-content:space-between; padding:0 10px 0 12px; height:44px; cursor:pointer; user-select:none; flex-shrink:0; }
     .chat-header:hover { background:var(--bg-page); }
-    .chat-header-left { display:flex; align-items:center; gap:6px; }
-    .chat-header-left svg { width:16px; height:16px; color:var(--accent); }
-    .chat-header-title { font-size:12px; font-weight:600; color:var(--text-secondary); }
-    .chat-header-toggle { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); transition:transform 0.2s ease; }
+    .chat-header-left { display:flex; align-items:center; gap:6px; min-width:0; }
+    .chat-header-left svg { width:16px; height:16px; color:var(--accent); flex-shrink:0; }
+    .chat-header-title { font-size:12px; font-weight:600; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .chat-status { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:var(--success); background:var(--success-bg); border-radius:20px; padding:1px 7px; flex-shrink:0; }
+    .chat-header-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+    .chat-conv-select { font:inherit; font-size:11px; max-width:110px; padding:4px 6px; border:1px solid var(--border); border-radius:7px; background:#fff; color:var(--text-secondary); cursor:pointer; }
+    .chat-conv-select:focus { outline:none; border-color:var(--accent); }
+    .chat-hbtn { width:26px; height:26px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:7px; background:#fff; color:var(--text-secondary); cursor:pointer; transition:var(--transition); }
+    .chat-hbtn:hover { border-color:var(--accent); color:var(--accent); }
+    .chat-hbtn svg { width:15px; height:15px; fill:currentColor; }
+    .chat-header-toggle { width:22px; height:22px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); transition:transform 0.2s ease; }
     .chat-section.expanded .chat-header-toggle { transform:rotate(180deg); }
-    .chat-body { display:flex; flex-direction:column; flex:1; min-height:0; }
-    .chat-messages { flex:1; overflow-y:auto; padding:8px 14px; }
-    .chat-messages::-webkit-scrollbar { width:4px; }
-    .chat-messages::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
-    .chat-input-area { padding:6px 12px; border-top:1px solid var(--border-light); display:flex; gap:6px; align-items:center; }
-    .chat-input { flex:1; padding:7px 10px; background:var(--bg-page); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13px; font-family:inherit; color:var(--text-primary); resize:none; max-height:50px; transition:var(--transition); }
+    .chat-body { display:flex; flex-direction:column; flex:1; min-height:0; position:relative; }
+    .chat-messages { flex:1; min-height:0; overflow-y:auto; padding:8px 14px; scrollbar-width:none; -ms-overflow-style:none; }
+    .chat-messages::-webkit-scrollbar { display:none; width:0; height:0; }
+    .chat-input-area { padding:6px 12px; border-top:1px solid var(--border-light); display:flex; gap:6px; align-items:flex-end; }
+    .chat-domain-sel { font:inherit; font-size:11px; max-width:112px; padding:7px 6px; border:1px solid var(--border); border-radius:9px; background:#fff; color:var(--text-secondary); cursor:pointer; flex-shrink:0; }
+    .chat-domain-sel:focus { outline:none; border-color:var(--accent); }
+    .chat-input { flex:1; padding:8px 10px; background:var(--bg-page); border:1px solid var(--border); border-radius:10px; font-size:13px; font-family:inherit; color:var(--text-primary); resize:none; max-height:64px; overflow-y:auto; transition:var(--transition); }
     .chat-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
-    .chat-send { width:28px; height:28px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:var(--transition); flex-shrink:0; }
+    .chat-send { width:30px; height:30px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:var(--transition); flex-shrink:0; }
     .chat-send:hover { background:var(--accent-hover); transform:scale(1.05); }
     .chat-send:active { transform:scale(0.95); }
     .chat-send:disabled { background:var(--border); cursor:not-allowed; transform:none; }
     .chat-send svg { width:14px; height:14px; fill:white; }
-    .chat-hint { text-align:right; font-size:10px; color:var(--text-muted); padding:0 12px 4px; }
-    .chat-msg { margin-bottom:8px; animation:fadeUp 0.3s ease; }
+    .chat-hint { text-align:right; font-size:10px; color:var(--text-muted); padding:0 12px 4px; flex-shrink:0; }
+    .chat-empty { padding:8px 2px 4px; }
+    .chat-empty-title { font-size:13px; font-weight:700; color:var(--text-primary); }
+    .chat-empty-sub { font-size:12px; color:var(--text-muted); margin-top:2px; }
+    .chat-quick { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+    .chat-quick-chip { font:inherit; font-size:11.5px; color:var(--accent); background:var(--accent-light); border:1px solid transparent; border-radius:20px; padding:5px 11px; cursor:pointer; transition:var(--transition); }
+    .chat-quick-chip:hover { border-color:var(--accent); }
+    .chat-msg { margin-bottom:10px; animation:fadeUp 0.3s ease; }
     .chat-msg-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
     .chat-msg-role { font-size:12px; font-weight:600; color:var(--text-secondary); }
     .chat-msg-time { font-size:11px; color:var(--text-muted); }
-    .chat-msg-avatar { width:24px; height:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; margin-right:6px; flex-shrink:0; }
+    .chat-msg-avatar { width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; margin-right:6px; flex-shrink:0; }
     .chat-msg.user-msg .chat-msg-avatar { background:var(--accent-light); color:var(--accent); }
     .chat-msg.ai-msg .chat-msg-avatar { background:var(--accent); color:white; }
-    .chat-msg-content { font-size:13px; line-height:1.6; color:var(--text-secondary); padding-left:30px; }
-    .chat-msg-sources { margin-top:6px; padding-left:30px; font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:4px; }
-    .chat-msg-sources svg { width:12px; height:12px; }
+    .chat-msg-content { font-size:13px; line-height:1.55; color:var(--text-secondary); padding:8px 11px; border-radius:11px; background:var(--bg-page); border:1px solid var(--border-light); }
+    .chat-msg.user-msg .chat-msg-content { background:var(--accent-light); border-color:rgba(199,91,57,0.18); color:var(--text-primary); }
+    .chat-msg-actions { display:flex; justify-content:flex-end; gap:6px; margin-top:4px; }
+    .chat-copy { font:inherit; font-size:10.5px; font-weight:600; color:var(--text-muted); background:none; border:none; cursor:pointer; padding:2px 4px; }
+    .chat-copy:hover { color:var(--accent); }
+    .chat-fb { display:inline-flex; gap:4px; margin-left:6px; }
+    .chat-fb-btn { background:none; border:1px solid var(--border); border-radius:6px; padding:1px 6px; cursor:pointer; font-size:12px; line-height:1.4; opacity:0.65; }
+    .chat-fb-btn:hover { opacity:1; border-color:var(--accent); }
+    .chat-fb-btn.active { opacity:1; border-color:var(--accent); background:var(--accent-soft); }
+    .chat-msg-sources { margin-top:6px; display:flex; flex-wrap:wrap; gap:5px; }
+    .chat-src { font-size:10.5px; font-weight:600; color:var(--text-secondary); background:var(--bg-page); border:1px solid var(--border); border-radius:20px; padding:2px 9px; cursor:pointer; transition:var(--transition); }
+    .chat-src:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+    .chat-jump { position:absolute; right:14px; bottom:52px; width:28px; height:28px; border-radius:50%; border:1px solid var(--border); background:#fff; color:var(--accent); box-shadow:var(--shadow-md); cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:6; }
+    .chat-jump svg { width:16px; height:16px; fill:currentColor; }
 
     /* TOAST */
     .toast-container { position:fixed; top:20px; right:20px; z-index:2000; display:flex; flex-direction:column; gap:8px; }
@@ -281,6 +324,133 @@
     .empty-state { text-align:center; padding:40px 20px; color:var(--text-muted); }
     .empty-state svg { width:48px; height:48px; margin-bottom:12px; opacity:0.3; }
     .empty-state p { font-size:13px; }
+
+    /* ── DASHBOARD ── */
+    .dash-block, .upload-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); margin-bottom:18px; overflow:hidden; animation:fadeUp 0.35s ease both; }
+
+    .upload-card { padding:0 0 20px; }
+    .upload-head { display:flex; align-items:center; gap:12px; padding:18px 20px 0; }
+    .upload-head-ic { width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, var(--accent), #e8956e); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 4px 12px rgba(199,91,57,0.25); }
+    .upload-head-ic svg { width:20px; height:20px; fill:currentColor; }
+    .upload-head-title { font-size:15px; font-weight:700; color:var(--text-primary); }
+    .upload-head-sub { font-size:12.5px; color:var(--text-secondary); margin-top:2px; }
+    .upload-card .upload-zone { margin:16px 20px 0; border:2px dashed #e2d6cd; border-radius:var(--radius-md); background:linear-gradient(180deg, #fffdfc, #fff); }
+    .upload-card .upload-zone:hover, .upload-card .upload-zone.dragover { border-color:var(--accent); background:var(--accent-light); }
+    .upload-card .upload-progress { margin:0 20px 18px; }
+
+    .dash-grid { display:grid; grid-template-columns:1.3fr 1fr; gap:18px; align-items:start; }
+    .dash-block-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:16px 18px; border-bottom:1px solid var(--border-light); }
+    .dash-block-head .hd { display:flex; align-items:center; gap:11px; min-width:0; }
+    .dash-block-head h2 { font-size:14.5px; font-weight:700; letter-spacing:-0.01em; color:var(--text-primary); }
+    .dash-ic { width:32px; height:32px; border-radius:10px; background:linear-gradient(135deg, var(--accent), #e8956e); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 3px 10px rgba(199,91,57,0.22); }
+    .dash-ic svg { width:17px; height:17px; fill:currentColor; }
+    .dash-block-head .hint { font-size:11px; font-weight:600; color:var(--text-secondary); background:var(--bg-page); border:1px solid var(--border); padding:3px 10px; border-radius:20px; white-space:nowrap; }
+    .dash-block-body { padding:8px 18px 14px; }
+
+    .dash-recent-item { display:flex; gap:11px; padding:12px 10px; margin:0 -10px; border-radius:10px; border-bottom:1px solid var(--border-light); transition:var(--transition); }
+    .dash-recent-item:last-child { border-bottom:none; }
+    .dash-recent-item:hover { background:var(--bg-page); border-color:transparent; }
+    .dash-recent-main { flex:1; min-width:0; }
+    .dash-quote-ic { width:28px; height:28px; border-radius:9px; background:var(--accent-light); color:var(--accent); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .dash-quote-ic svg { width:14px; height:14px; fill:currentColor; }
+    .dash-recent-q { font-size:13px; color:var(--text-primary); line-height:1.45; font-weight:500; }
+    .dash-recent-meta { font-size:11.5px; color:var(--text-muted); margin-top:5px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .dash-badge { background:var(--accent-light); border-radius:20px; padding:2px 9px; font-size:10.5px; font-weight:600; color:var(--accent); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    .dash-conv { display:flex; align-items:center; gap:11px; padding:11px 10px; margin:0 -10px; border-radius:10px; border-bottom:1px solid var(--border-light); cursor:pointer; transition:var(--transition); }
+    .dash-conv:last-child { border-bottom:none; }
+    .dash-conv:hover { background:var(--bg-page); border-color:transparent; }
+    .dash-conv-ic { width:32px; height:32px; border-radius:10px; background:var(--accent-light); color:var(--accent); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .dash-conv-ic svg { width:16px; height:16px; fill:currentColor; }
+    .dash-conv-body { flex:1; min-width:0; }
+    .dash-conv-title { font-size:13px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .dash-conv-time { font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+    .dash-conv:hover .dash-conv-title { color:var(--accent); }
+    .dash-chev { color:var(--text-muted); flex-shrink:0; }
+    .dash-chev svg { width:16px; height:16px; fill:currentColor; }
+    .dash-conv-del { width:26px; height:26px; background:none; border:none; border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text-muted); flex-shrink:0; opacity:0; transition:var(--transition); }
+    .dash-conv:hover .dash-conv-del { opacity:1; }
+    .dash-conv-del:hover { background:var(--danger-bg); color:var(--danger); }
+    .dash-conv-del svg { width:15px; height:15px; fill:currentColor; }
+
+    .dash-note { font-size:12.5px; color:var(--text-muted); line-height:1.55; padding:6px 0; }
+
+    .dl-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 10px; margin:0 -10px; border-radius:10px; border-bottom:1px solid var(--border-light); transition:var(--transition); }
+    .dl-row:last-child { border-bottom:none; }
+    .dl-row:hover { background:var(--bg-page); border-color:transparent; }
+    .dl-info b { font-size:13px; font-weight:600; color:var(--text-primary); display:block; }
+    .dl-info span { font-size:11.5px; color:var(--text-muted); }
+    .dl-ctl { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+    .fmt { font:inherit; font-size:12px; font-weight:600; padding:8px 10px; border:1px solid var(--border); border-radius:9px; background:#fff; color:var(--text-secondary); cursor:pointer; transition:var(--transition); }
+    .fmt:hover { border-color:var(--accent); color:var(--accent); }
+    .fmt:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    .btn-out { font:inherit; font-size:12.5px; font-weight:600; padding:9px 15px; border-radius:9px; border:1px solid var(--border); background:#fff; color:var(--text-primary); cursor:pointer; transition:var(--transition); }
+    .btn-out:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+    .btn-all { font:inherit; font-size:12.5px; font-weight:600; padding:9px 16px; border-radius:9px; border:none; background:var(--accent); color:#fff; cursor:pointer; transition:var(--transition); box-shadow:0 3px 10px rgba(199,91,57,0.22); }
+    .btn-all:hover { background:var(--accent-hover); }
+
+    /* USUARIOS */
+    .user-form { display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; align-items:end; }
+    .uf-field { display:flex; flex-direction:column; gap:5px; min-width:0; }
+    .uf-field label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:var(--text-muted); }
+    .uf-field input, .uf-field select { font:inherit; font-size:13px; padding:10px 12px; border:1px solid var(--border); border-radius:9px; background:#fff; color:var(--text-primary); }
+    .uf-field input:focus, .uf-field select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    .uf-btn { grid-column:1 / -1; justify-self:start; }
+    .users-table-wrap { overflow-x:auto; }
+    .users-table { width:100%; border-collapse:collapse; }
+    .users-table th { font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); text-align:left; padding:0 10px 10px; font-weight:700; border-bottom:1px solid var(--border-light); white-space:nowrap; }
+    .users-table td { padding:11px 10px; border-bottom:1px solid var(--border-light); font-size:13px; vertical-align:middle; }
+    .users-table tr:last-child td { border-bottom:none; }
+    .users-table .u-name { font-weight:600; color:var(--text-primary); }
+    .users-table .u-email { color:var(--text-secondary); }
+    .u-role-sel { font:inherit; font-size:12px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--text-secondary); cursor:pointer; }
+    .u-role-sel:focus { outline:none; border-color:var(--accent); }
+    .u-pill { font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+    .u-pill.on { background:var(--success-bg); color:var(--success); }
+    .u-pill.off { background:var(--danger-bg); color:var(--danger); }
+    .u-act { font:inherit; font-size:12px; font-weight:600; padding:6px 11px; border-radius:8px; border:1px solid var(--border); background:#fff; color:var(--text-primary); cursor:pointer; transition:var(--transition); }
+    .u-act:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+    .u-act[disabled] { opacity:0.45; cursor:not-allowed; }
+    .u-you { font-size:10.5px; color:var(--text-muted); margin-left:6px; }
+    .u-actions { display:flex; gap:8px; align-items:center; }
+    .u-del { width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--text-muted); cursor:pointer; transition:var(--transition); }
+    .u-del:hover { border-color:var(--danger); color:var(--danger); background:var(--danger-bg); }
+    .u-del[disabled] { opacity:0.45; cursor:not-allowed; }
+    .u-del svg { width:15px; height:15px; fill:currentColor; }
+
+    /* CONFIGURACION (palabras clave) */
+    .kw-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; padding-top:12px; border-top:1px solid var(--border-light); flex-wrap:wrap; }
+    .kw-toggle { font-size:12.5px; color:var(--text-secondary); display:inline-flex; align-items:center; gap:7px; cursor:pointer; }
+    .kw-toggle input { accent-color:var(--accent); }
+    .kw-io { display:flex; gap:8px; }
+    .kw-group { margin-bottom:14px; }
+    .kw-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border-light); }
+    .kw-row:last-child { border-bottom:none; }
+    .kw-row.inactive { opacity:0.55; }
+    .kw-info { flex:1; min-width:0; }
+    .kw-term { font-size:13.5px; font-weight:600; color:var(--text-primary); }
+    .kw-prio { font-size:9.5px; font-weight:700; color:var(--accent); background:var(--accent-light); border-radius:10px; padding:1px 6px; margin-left:6px; vertical-align:middle; }
+    .kw-desc { font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+    .kw-actions { display:flex; gap:6px; align-items:center; flex-shrink:0; }
+    .kw-btn { font:inherit; font-size:11.5px; font-weight:600; color:var(--text-secondary); background:#fff; border:1px solid var(--border); border-radius:8px; padding:5px 10px; cursor:pointer; transition:var(--transition); }
+    .kw-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+    .kw-del { width:30px; height:30px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--text-muted); cursor:pointer; transition:var(--transition); }
+    .kw-del:hover { border-color:var(--danger); color:var(--danger); background:var(--danger-bg); }
+    .kw-del svg { width:15px; height:15px; fill:currentColor; }
+    .kw-edit { display:grid; grid-template-columns:1.1fr 1fr 1.3fr auto auto; gap:8px; align-items:center; width:100%; }
+    .kw-edit input { font:inherit; font-size:12.5px; padding:7px 9px; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--text-primary); min-width:0; }
+    .kw-edit input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    .kw-edit-actions { display:flex; gap:6px; }
+    @media (max-width:700px) { .kw-edit { grid-template-columns:1fr; } }
+
+    .config-tabs { display:flex; gap:6px; margin-bottom:14px; }
+    .config-tab { font:inherit; font-size:13px; font-weight:600; color:var(--text-secondary); background:#fff; border:1px solid var(--border); border-radius:9px; padding:8px 16px; cursor:pointer; transition:var(--transition); }
+    .config-tab:hover { border-color:var(--accent); color:var(--accent); }
+    .config-tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+    @media (max-width:1024px) { .dash-grid { grid-template-columns:1fr; } }
+    @media (max-width:600px) { .user-form { grid-template-columns:1fr; } }
+    @media (max-width:600px) { .dl-row { flex-direction:column; align-items:flex-start; } .dl-ctl { width:100%; } .dl-ctl .btn-out, .dl-ctl .btn-all { flex:1; } }
 
     /* ANIMATIONS */
     @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
@@ -335,8 +505,8 @@
         <p>Sistema RAG Medico Local</p>
       </div>
       <div id="login-error" class="login-error"></div>
-      <input type="text" id="login-user" placeholder="Usuario" value="admin">
-      <input type="password" id="login-pass" placeholder="Contrasena" autocomplete="current-password">
+      <input type="text" id="login-user" placeholder="Usuario" autocomplete="off" spellcheck="false">
+      <input type="password" id="login-pass" placeholder="Contrasena" autocomplete="off">
       <button onclick="doLogin()">Ingresar</button>
     </div>
   </div>
@@ -371,27 +541,26 @@
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
             Dashboard
           </div>
-          <div class="nav-item" onclick="downloadHistory()">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4L10 13.2V3h2zM5 19h14v2H5z"/></svg>
-            Historial
-          </div>
-          <div class="nav-item" onclick="downloadAudit()">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 13h8v2H8zm0 4h8v2H8z"/></svg>
-            Bitácora
-          </div>
-          <div class="nav-item" onclick="downloadAll()">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
-            Descargar todo
-          </div>
-          <div class="nav-item" onclick="setView(this,'bsc')">
+          <div class="nav-item" id="nav-bsc" onclick="setView(this,'bsc')">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2v10h-2zm6 0h2v7h-2zM5 7h2v13H5zM3 21V3h2v16h16v2z"/></svg>
             BSC
+          </div>
+          <div class="nav-item" id="nav-users" onclick="setView(this,'users')">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+            Usuarios
+          </div>
+          <div class="nav-item" id="nav-config" onclick="setView(this,'settings')">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.03 7.03 0 00-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>
+            Configuracion
           </div>
 
 
         </nav>
         <div class="sidebar-docs" id="sidebar-docs">
           <div class="sidebar-docs-title">Documentos</div>
+          <select class="sidebar-domain-filter" id="docs-domain-filter" onchange="renderDocs()">
+            <option value="all">Todos los dominios</option>
+          </select>
           <div id="docs-list">
             <div class="empty-state"><p>Cargando documentos...</p></div>
           </div>
@@ -410,15 +579,25 @@
       <!-- CENTER -->
       <main class="center-column" id="center-column">
 
+        <!-- DASHBOARD -->
+        <div id="dashboard-view">
+
         <!-- UPLOAD -->
-        <div class="card" id="upload-card">
+        <div class="card upload-card" id="upload-card">
+          <div class="upload-head">
+            <div class="upload-head-ic"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4h2v4h14v-4h2zM12 3l5 5h-4v6h-2V8H7l5-5z"/></svg></div>
+            <div>
+              <div class="upload-head-title">Cargar documentos</div>
+              <div class="upload-head-sub">Impreso, escaneado o escrito a mano: el sistema lo lee por ti.</div>
+            </div>
+          </div>
           <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
             <div class="upload-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
             </div>
-            <div class="upload-text" id="upload-text">Arrastra tu PDF aqui</div>
-            <div class="upload-link" id="upload-link">o selecciona un archivo</div>
-            <div class="upload-hint">Solo archivos .pdf - Maximo 100MB</div>
+            <div class="upload-text" id="upload-text">Arrastra tus PDF aqui</div>
+            <div class="upload-link" id="upload-link">o haz clic para elegirlos</div>
+            <div class="upload-hint">Solo PDF - hasta 100 MB por archivo</div>
             <div class="upload-status" id="upload-status"></div>
             <input type="file" id="file-input" accept=".pdf" multiple style="display:none">
           </div>
@@ -433,8 +612,174 @@
           </div>
         </div>
 
+        <!-- TUS CONSULTAS Y CONVERSACIONES -->
+        <div class="dash-grid" id="dash-grid">
+          <section class="dash-block">
+            <div class="dash-block-head">
+              <div class="hd"><span class="dash-ic"><svg viewBox="0 0 24 24"><path d="M6 17h3l2-4V7H5v6h3l-2 4zm8 0h3l2-4V7h-6v6h3l-2 4z"/></svg></span><h2>Tus ultimas consultas</h2></div>
+              <span class="hint" id="hint-recent">lo que ya preguntaste</span>
+            </div>
+            <div class="dash-block-body" id="dash-recent"></div>
+          </section>
+          <section class="dash-block">
+            <div class="dash-block-head">
+              <div class="hd"><span class="dash-ic"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></span><h2>Tus conversaciones</h2></div>
+              <span class="hint" id="hint-convs">retomalas cuando quieras</span>
+            </div>
+            <div class="dash-block-body" id="dash-convs"></div>
+          </section>
+        </div>
+
+        <!-- REPORTES Y DESCARGAS -->
+        <section class="dash-block">
+          <div class="dash-block-head">
+            <div class="hd"><span class="dash-ic"><svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg></span><h2>Reportes y descargas</h2></div>
+          </div>
+          <div class="dash-block-body" id="dash-downloads">
+            <div class="dl-row" id="dl-hist-row">
+              <div class="dl-info"><b>Historial de preguntas</b><span>que se pregunto y que se respondio</span></div>
+              <div class="dl-ctl">
+                <select class="fmt" id="dl-hist-fmt"><option value="csv">CSV</option><option value="json">JSON</option><option value="txt">TXT</option></select>
+                <button class="btn-out" onclick="downloadHistory()">Descargar</button>
+              </div>
+            </div>
+            <div class="dl-row" id="dl-audit-row">
+              <div class="dl-info"><b>Historial de actividad</b><span>quien hizo que y cuando</span></div>
+              <div class="dl-ctl">
+                <select class="fmt" id="dl-audit-fmt"><option value="csv">CSV</option><option value="json">JSON</option></select>
+                <button class="btn-out" onclick="downloadAudit()">Descargar</button>
+              </div>
+            </div>
+            <div class="dl-row" id="dl-all-row">
+              <div class="dl-info"><b>Descargar todo</b><span>los reportes disponibles de una vez</span></div>
+              <div class="dl-ctl"><button class="btn-all" onclick="downloadAll()">Descargar todo</button></div>
+            </div>
+          </div>
+        </section>
+        </div>
+
+        <!-- USUARIOS (solo admin) -->
+        <div id="users-view" style="display:none">
+          <section class="dash-block">
+            <div class="dash-block-head">
+              <div class="hd"><span class="dash-ic"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span><h2>Crear usuario</h2></div>
+              <span class="hint">solo administrador</span>
+            </div>
+            <div class="dash-block-body">
+              <div class="user-form">
+                <div class="uf-field"><label for="u-username">Usuario</label><input id="u-username" type="text" placeholder="ej. dr.perez" autocomplete="off"></div>
+                <div class="uf-field"><label for="u-email">Email</label><input id="u-email" type="email" placeholder="correo@ejemplo.com" autocomplete="off"></div>
+                <div class="uf-field"><label for="u-password">Contrasena</label><input id="u-password" type="password" placeholder="min. 8 caracteres" autocomplete="new-password"></div>
+                <div class="uf-field"><label for="u-role">Rol</label>
+                  <select id="u-role">
+                    <option value="assistant">assistant - usuario autorizado</option>
+                    <option value="viewer">viewer - solo consulta</option>
+                    <option value="editor">editor - especialista</option>
+                    <option value="auditor">auditor</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </div>
+                <button class="btn-all uf-btn" onclick="createUser()">Crear usuario</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="dash-block">
+            <div class="dash-block-head">
+              <div class="hd"><span class="dash-ic"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span><h2>Usuarios</h2></div>
+              <span class="hint" id="users-count">cargando...</span>
+            </div>
+            <div class="dash-block-body">
+              <div class="users-table-wrap">
+                <table class="users-table">
+                  <thead><tr><th>Usuario</th><th>Email</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead>
+                  <tbody id="users-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- CONFIGURACION (admin/editor): palabras clave + sinonimos -->
+        <div id="config-view" style="display:none">
+          <div class="config-tabs">
+            <button class="config-tab active" id="tab-kw" onclick="configTab('kw')">Palabras clave</button>
+            <button class="config-tab" id="tab-syn" onclick="configTab('syn')">Sinonimos</button>
+          </div>
+
+          <div id="config-kw">
+            <section class="dash-block">
+              <div class="dash-block-head">
+                <div class="hd"><span class="dash-ic"><svg viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41s-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg></span><h2>Palabras clave por dominio</h2></div>
+                <span class="hint" id="kw-count">cargando...</span>
+              </div>
+              <div class="dash-block-body">
+                <div class="user-form">
+                  <div class="uf-field"><label for="kw-term">Termino</label><input id="kw-term" type="text" placeholder="ej. glaucoma" autocomplete="off"></div>
+                  <div class="uf-field"><label for="kw-domain">Dominio</label><input id="kw-domain" list="kw-domains" placeholder="ej. oftalmologia" autocomplete="off"><datalist id="kw-domains"></datalist></div>
+                  <div class="uf-field"><label for="kw-desc">Descripcion (opcional)</label><input id="kw-desc" type="text" autocomplete="off"></div>
+                  <div class="uf-field"><label for="kw-priority">Prioridad</label><select id="kw-priority"><option value="1">Baja</option><option value="2">Media</option><option value="3">Alta</option></select></div>
+                  <button class="btn-all uf-btn" onclick="addKeyword()">Agregar palabra clave</button>
+                </div>
+                <div class="kw-toolbar">
+                  <label class="kw-toggle"><input type="checkbox" id="kw-show-inactive" onchange="loadKeywords()"> Mostrar dados de baja</label>
+                  <div class="kw-io">
+                    <input type="file" id="kw-import-file" accept=".csv" style="display:none" onchange="importKeywords(this)">
+                    <button class="btn-out" onclick="document.getElementById('kw-import-file').click()">Importar CSV</button>
+                    <button class="btn-out" onclick="exportKeywords()">Exportar CSV</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+            <div id="kw-groups"></div>
+            <section class="dash-block">
+              <div class="dash-block-head">
+                <div class="hd"><span class="dash-ic"><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 16.6 5.7 21l2.3-7.2-6-4.4h7.6z"/></svg></span><h2>Candidatos (conceptos emergentes)</h2></div>
+                <span class="hint" id="cand-count">cargando...</span>
+              </div>
+              <div class="dash-block-body" id="cand-body"></div>
+            </section>
+          </div>
+
+          <div id="config-syn" style="display:none">
+            <section class="dash-block">
+              <div class="dash-block-head">
+                <div class="hd"><span class="dash-ic"><svg viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41s-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg></span><h2>Sinonimos (concepto y variantes)</h2></div>
+                <span class="hint" id="syn-count">cargando...</span>
+              </div>
+              <div class="dash-block-body">
+                <div class="user-form">
+                  <div class="uf-field"><label for="syn-canonical">Concepto</label><input id="syn-canonical" type="text" placeholder="ej. DNI" autocomplete="off"></div>
+                  <div class="uf-field"><label for="syn-category">Categoria</label><input id="syn-category" list="syn-categories" placeholder="ej. identificacion" autocomplete="off"><datalist id="syn-categories"></datalist></div>
+                  <div class="uf-field"><label for="syn-variants">Variantes (separadas por coma)</label><input id="syn-variants" type="text" placeholder="documento de identidad, carnet de extranjeria" autocomplete="off"></div>
+                  <button class="btn-all uf-btn" onclick="saveSynonym()">Guardar sinonimo</button>
+                </div>
+                <div class="kw-toolbar">
+                  <span></span>
+                  <div class="kw-io">
+                    <input type="file" id="syn-import-file" accept=".csv" style="display:none" onchange="importSynonyms(this)">
+                    <button class="btn-out" onclick="document.getElementById('syn-import-file').click()">Importar CSV</button>
+                    <button class="btn-out" onclick="exportSynonyms()">Exportar CSV</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+            <div id="syn-groups"></div>
+          </div>
+        </div>
+
+        <!-- DATOS DEL PACIENTE -->
+        <div class="card" id="patient-card" style="display:none">
+          <div class="card-header">
+            <div class="card-icon accent"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+            <span class="card-title">Datos del paciente</span>
+            <span class="patient-status" id="patient-status"></span>
+          </div>
+          <div id="patient-body"></div>
+        </div>
+
         <!-- SMART SEARCH -->
-        <div class="card" id="search-card">
+        <div class="card" id="search-card" style="display:none">
           <div class="card-header">
             <div class="card-icon accent">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
@@ -446,10 +791,17 @@
             <input type="text" class="search-input" id="search-input" placeholder="Selecciona un documento para buscar" disabled oninput="onSearchInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();clearTimeout(searchDebounce);doSearch({focusWord: this.value.trim()})}">
           </div>
           <div class="search-hint" id="search-hint">Abre un documento de la izquierda para buscar dentro de el.</div>
+          <div class="search-synonyms" id="search-synonyms"></div>
           <div class="search-chips" id="search-chips"></div>
           <div class="search-filters">
             <select class="filter-select" id="filter-pages" onchange="doSearch({focusWord: lastFocusWord})">
               <option value="all">Paginas: Todas</option>
+            </select>
+            <select class="filter-select" id="filter-domain" onchange="doSearch({focusWord: lastFocusWord})">
+              <option value="all">Dominio: Todos</option>
+            </select>
+            <select class="filter-select" id="filter-section" onchange="doSearch({focusWord: lastFocusWord})">
+              <option value="all">Seccion: Todas</option>
             </select>
           </div>
           <div class="search-stats" id="search-stats"></div>
@@ -484,6 +836,15 @@
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6 1.41-1.41zM6 6h2v12H6V6z"/></svg>
           </button>
         </div>
+        <div id="ocr-warn" style="display:none;background:#fff4e5;color:#8a5300;border-bottom:1px solid #f0d9b5;padding:8px 12px;font-size:13px"></div>
+        <div id="word-edit-popup" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.18);padding:10px;width:300px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:6px">CORREGIR PALABRA (OCR)</div>
+          <input id="word-edit-input" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:13px" onkeydown="if(event.key==='Enter'){event.preventDefault();saveWordEdit()}else if(event.key==='Escape'){closeWordEdit()}">
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+            <button class="kw-btn" onclick="closeWordEdit()">Cancelar</button>
+            <button class="kw-btn" onclick="saveWordEdit()">Guardar</button>
+          </div>
+        </div>
         <div class="pdf-viewer" id="pdf-viewer">
           <div class="pdf-placeholder">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
@@ -495,31 +856,34 @@
             <div class="chat-header-left">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
               <span class="chat-header-title">Consulta Medica IA</span>
+              <span class="chat-status">local</span>
             </div>
-            <div class="chat-header-toggle">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+            <div class="chat-header-actions" onclick="event.stopPropagation()">
+              <select class="chat-conv-select" id="chat-conv-select" onchange="onConvSelect(this)" title="Conversaciones recientes"><option value="">Recientes...</option></select>
+              <button class="chat-hbtn" title="Nueva conversacion" onclick="startNewConversation()"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></button>
+              <div class="chat-header-toggle" onclick="toggleChat()">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+              </div>
             </div>
           </div>
           <div class="chat-body">
             <div class="chat-messages" id="chat-messages">
-              <div class="chat-msg ai-msg">
-                <div class="chat-msg-header">
-                  <div style="display:flex;align-items:center">
-                    <span class="chat-msg-avatar">IA</span>
-                    <span class="chat-msg-role">Consulta Medica IA</span>
-                  </div>
-                </div>
-                <div class="chat-msg-content">Hola! Selecciona un documento y hazme cualquier pregunta sobre el.</div>
+              <div class="chat-empty" id="chat-empty">
+                <div class="chat-empty-title">Hola, soy tu asistente</div>
+                <div class="chat-empty-sub">Preguntame sobre el documento abierto o conversa conmigo.</div>
+                <div class="chat-quick" id="chat-quick"></div>
               </div>
             </div>
+            <button class="chat-jump" id="chat-jump" title="Ir al final" onclick="scrollChatToBottom()" style="display:none"><svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg></button>
             <div class="chat-input-area">
-              <textarea class="chat-input" id="chat-input" rows="1" placeholder="Escribe tu consulta..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendQuery()}"></textarea>
+              <select class="chat-domain-sel" id="chat-domain" title="Filtrar por dominio"><option value="">Dominio: Todos</option></select>
+              <textarea class="chat-input" id="chat-input" rows="1" placeholder="Escribe tu consulta o saluda..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendQuery()}"></textarea>
               <button class="chat-send" id="chat-send" onclick="sendQuery()">
                 <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
               </button>
             </div>
           </div>
-          <div class="chat-hint">Presiona Enter para enviar</div>
+          <div class="chat-hint">Enter envia · Shift+Enter nueva linea</div>
         </div>
       </aside>
 
@@ -530,10 +894,13 @@
   <script>
     const API = '';
     let token = localStorage.getItem('token');
+    let currentUser = localStorage.getItem('username') || '';
+    let currentRole = localStorage.getItem('role') || '';
     let docs = [];
     let selectedDocId = null;
     let docChunks = [];
     let docWordBoxes = {};
+    let docWordBoxesDpi = 200;
     let pageBoxMeta = {};
     let pageSortedOrder = {};
     let docDataStatus = 'idle'; // idle | loading | ready | error
@@ -555,6 +922,9 @@
       document.getElementById('app').classList.add('show');
       loadDocs();
       loadSynonyms();
+      loadDashboard();
+      loadChatDomains();
+      applyRoleUI();
     }
 
     async function doLogin() {
@@ -574,7 +944,11 @@
         }
         const data = await res.json();
         token = data.access_token;
+        currentUser = data.username || currentUser;
+        currentRole = data.role || currentRole;
         localStorage.setItem('token', token);
+        if (currentUser) localStorage.setItem('username', currentUser);
+        if (currentRole) localStorage.setItem('role', currentRole);
         showApp();
       } catch(e) {
         document.getElementById('login-error').textContent = 'Error de conexion';
@@ -585,9 +959,17 @@
     function doLogout() {
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
       token = null;
+      currentUser = '';
+      currentRole = '';
       localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      localStorage.removeItem('role');
       document.getElementById('app').classList.remove('show');
       document.getElementById('login-screen').classList.add('show');
+      const lu = document.getElementById('login-user');
+      const lp = document.getElementById('login-pass');
+      if (lu) lu.value = '';
+      if (lp) lp.value = '';
     }
 
     document.addEventListener('keydown', e => {
@@ -621,17 +1003,36 @@
       } catch(e) { console.error(e); return []; }
     }
 
+    function populateDocsDomainFilter() {
+      const sel = document.getElementById('docs-domain-filter');
+      if (!sel) return;
+      const cur = sel.value || 'all';
+      const set = new Set();
+      (docs || []).forEach(d => (d.domains || []).forEach(x => set.add(x)));
+      const doms = [...set].sort();
+      sel.innerHTML = '<option value="all">Todos los dominios</option>' +
+        doms.map(x => '<option value="' + esc(x) + '">' + esc(x) + '</option>').join('');
+      sel.value = doms.includes(cur) ? cur : 'all';
+    }
+
     function renderDocs() {
       const list = document.getElementById('docs-list');
-      if (!docs.length) {
+      if (!list) return;
+      populateDocsDomainFilter();
+      const sel = document.getElementById('docs-domain-filter');
+      const filter = sel ? sel.value : 'all';
+      const visible = (filter && filter !== 'all')
+        ? docs.filter(d => (d.domains || []).includes(filter))
+        : docs;
+      if (!visible.length) {
         docsRenderSig = '';
-        list.innerHTML = '<div class="empty-state"><p>No hay documentos</p></div>';
+        list.innerHTML = '<div class="empty-state"><p>' + (docs.length ? 'Sin documentos en este dominio' : 'No hay documentos') + '</p></div>';
         return;
       }
-      const sig = docs.map(d => d.id + ':' + d.status + ':' + (d.total_chunks || 0) + ':' + (d.timings && d.timings.total_s || 0)).join('|');
+      const sig = filter + '|' + visible.map(d => d.id + ':' + d.status + ':' + (d.total_chunks || 0) + ':' + (d.timings && d.timings.total_s || 0)).join('|');
       if (sig === docsRenderSig) return;
       docsRenderSig = sig;
-      list.innerHTML = docs.map(d => {
+      list.innerHTML = visible.map(d => {
         let statusHtml;
         if (d.status === 'processing') {
           statusHtml = '<div class="doc-spinner"></div> Procesando...';
@@ -678,6 +1079,652 @@
       }, 3000);
     }
 
+    // ── DASHBOARD ──
+    let dashLoading = false;
+
+    function dashFriendlyTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      const now = new Date();
+      const hm = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+      if (d.toDateString() === now.toDateString()) return 'hoy ' + hm;
+      const yest = new Date(now); yest.setDate(now.getDate() - 1);
+      if (d.toDateString() === yest.toDateString()) return 'ayer ' + hm;
+      return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + ' ' + hm;
+    }
+
+    function dashNote(txt) { return '<div class="dash-note">' + txt + '</div>'; }
+
+    function applyRoleUI() {
+      const isAdmin = (!currentRole || currentRole === 'admin');
+      const isEditor = (!currentRole || currentRole === 'admin' || currentRole === 'editor');
+      const bsc = document.getElementById('nav-bsc');
+      const users = document.getElementById('nav-users');
+      const config = document.getElementById('nav-config');
+      if (bsc) bsc.style.display = isAdmin ? '' : 'none';
+      if (users) users.style.display = isAdmin ? '' : 'none';
+      if (config) config.style.display = isEditor ? '' : 'none';
+    }
+    function canExport() {
+      return !currentRole || currentRole === 'admin' || currentRole === 'editor' || currentRole === 'assistant';
+    }
+    function canAudit() {
+      return !currentRole || currentRole === 'admin' || currentRole === 'auditor';
+    }
+    function renderDownloads() {
+      const hist = document.getElementById('dl-hist-row');
+      const audit = document.getElementById('dl-audit-row');
+      const all = document.getElementById('dl-all-row');
+      if (hist) hist.style.display = canExport() ? '' : 'none';
+      if (audit) audit.style.display = canAudit() ? '' : 'none';
+      if (all) all.style.display = (canExport() && canAudit()) ? '' : 'none';
+    }
+
+    // ── USUARIOS (solo admin) ──
+    const ROLE_LIST = ['admin', 'editor', 'assistant', 'viewer', 'auditor'];
+    async function showUsers() {
+      currentView = 'users';
+      document.getElementById('dashboard-view').style.display = 'none';
+      document.getElementById('search-card').style.display = 'none';
+      document.getElementById('right-column').style.display = 'none';
+      document.getElementById('users-view').style.display = '';
+      ['u-username', 'u-email', 'u-password'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      await loadUsers();
+    }
+    async function loadUsers() {
+      const tbody = document.getElementById('users-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="5" class="dash-note">Cargando...</td></tr>';
+      try {
+        const res = await fetch(API + '/api/v1/users', {headers: authHeaders()});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const users = await res.json();
+        renderUsers(Array.isArray(users) ? users : []);
+      } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="5" class="dash-note">No se pudieron cargar los usuarios (' + esc(e.message) + ').</td></tr>';
+      }
+    }
+    function renderUsers(users) {
+      const tbody = document.getElementById('users-tbody');
+      const count = document.getElementById('users-count');
+      if (count) count.textContent = users.length + (users.length === 1 ? ' usuario' : ' usuarios');
+      if (!users.length) { tbody.innerHTML = '<tr><td colspan="5" class="dash-note">Sin usuarios.</td></tr>'; return; }
+      tbody.innerHTML = users.map(u => {
+        const isMe = (u.username === currentUser);
+        const roleOpts = ROLE_LIST.map(r => '<option value="' + r + '"' + (r === u.role ? ' selected' : '') + '>' + r + '</option>').join('');
+        const active = !!u.is_active;
+        return '<tr>'
+          + '<td><span class="u-name">' + esc(u.username) + '</span>' + (isMe ? '<span class="u-you">(tu)</span>' : '') + '</td>'
+          + '<td class="u-email">' + esc(u.email) + '</td>'
+          + '<td><select class="u-role-sel" onchange="changeUserRole(\'' + u.id + '\', this.value, this)"' + (isMe ? ' disabled' : '') + '>' + roleOpts + '</select></td>'
+          + '<td><span class="u-pill ' + (active ? 'on' : 'off') + '">' + (active ? 'Activo' : 'Inactivo') + '</span></td>'
+          + '<td class="u-actions">'
+          +   '<button class="u-act" onclick="toggleUserActive(\'' + u.id + '\', ' + (active ? 'false' : 'true') + ', this)"' + (isMe ? ' disabled' : '') + '>' + (active ? 'Desactivar' : 'Activar') + '</button>'
+          +   '<button class="u-del" title="Eliminar usuario" onclick="deleteUser(\'' + u.id + '\', this)"' + (isMe ? ' disabled' : '') + '>'
+          +     '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>'
+          + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+    async function createUser() {
+      const username = (document.getElementById('u-username').value || '').trim();
+      const email = (document.getElementById('u-email').value || '').trim();
+      const password = document.getElementById('u-password').value || '';
+      const role = document.getElementById('u-role').value;
+      if (!username || !email || !password) { showToast('Completa usuario, email y contrasena', 'error'); return; }
+      if (password.length < 8) { showToast('La contrasena debe tener al menos 8 caracteres', 'error'); return; }
+      try {
+        const res = await fetch(API + '/api/v1/users', {
+          method: 'POST', headers: {...authHeaders(), 'Content-Type': 'application/json'},
+          body: JSON.stringify({username: username, email: email, password: password, role: role})
+        });
+        if (res.status === 409) { showToast('Ese usuario o email ya existe', 'error'); return; }
+        if (res.status === 403) { showToast('Solo el administrador puede crear usuarios', 'error'); return; }
+        if (!res.ok) {
+          let d = '';
+          try { d = (await res.json()).detail; } catch(e) {}
+          showToast('No se pudo crear: ' + (d || ('HTTP ' + res.status)), 'error');
+          return;
+        }
+        showToast('Usuario "' + username + '" creado como ' + role, 'success');
+        document.getElementById('u-username').value = '';
+        document.getElementById('u-email').value = '';
+        document.getElementById('u-password').value = '';
+        document.getElementById('u-role').value = 'assistant';
+        loadUsers();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+    async function patchUser(id, body, note) {
+      try {
+        const res = await fetch(API + '/api/v1/users/' + id, {
+          method: 'PATCH', headers: {...authHeaders(), 'Content-Type': 'application/json'},
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+          let d = '';
+          try { d = (await res.json()).detail; } catch(e) {}
+          showToast('No se pudo actualizar: ' + (d || ('HTTP ' + res.status)), 'error');
+          loadUsers();
+          return;
+        }
+        if (note) showToast(note, 'success');
+        loadUsers();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+    function changeUserRole(id, role, el) { if (el) el.disabled = true; patchUser(id, {role: role}, 'Rol actualizado a ' + role); }
+    function toggleUserActive(id, active, el) { if (el) el.disabled = true; patchUser(id, {is_active: active}, active ? 'Usuario activado' : 'Usuario desactivado'); }
+    async function deleteUser(id, el) {
+      let name = 'este usuario';
+      if (el) {
+        const tr = el.closest('tr');
+        const n = tr && tr.querySelector('.u-name');
+        if (n && n.textContent) name = n.textContent;
+      }
+      if (!confirm('\u00bfEliminar al usuario "' + name + '"? Esta accion no se puede deshacer.')) return;
+      try {
+        const res = await fetch(API + '/api/v1/users/' + id, {method: 'DELETE', headers: authHeaders()});
+        if (res.status === 400) { showToast('No puedes eliminar tu propia cuenta', 'error'); return; }
+        if (res.status === 403) { showToast('Solo el administrador puede eliminar usuarios', 'error'); return; }
+        if (!res.ok && res.status !== 204) { showToast('No se pudo eliminar (HTTP ' + res.status + ')', 'error'); return; }
+        showToast('Usuario "' + name + '" eliminado', 'success');
+        loadUsers();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    // ── CONFIGURACION: palabras clave por dominio (admin/editor) ──
+    async function showConfig() {
+      currentView = 'config';
+      document.getElementById('dashboard-view').style.display = 'none';
+      document.getElementById('users-view').style.display = 'none';
+      document.getElementById('search-card').style.display = 'none';
+      document.getElementById('right-column').style.display = 'none';
+      document.getElementById('config-view').style.display = '';
+      document.getElementById('patient-card').style.display = 'none';
+      ['kw-term', 'kw-desc', 'syn-canonical', 'syn-variants'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      configTab('kw');
+    }
+
+    function loadKeywordDomains(keywords) {
+      const dl = document.getElementById('kw-domains');
+      if (!dl) return;
+      const domains = [...new Set((keywords || []).map(k => k.category).filter(Boolean))].sort();
+      dl.innerHTML = domains.map(d => '<option value="' + esc(d) + '"></option>').join('');
+    }
+
+    async function loadKeywords() {
+      const groups = document.getElementById('kw-groups');
+      if (!groups) return;
+      const inc = document.getElementById('kw-show-inactive');
+      const includeInactive = inc ? inc.checked : false;
+      groups.innerHTML = '<section class="dash-block"><div class="dash-block-body"><div class="dash-note">Cargando...</div></div></section>';
+      try {
+        const res = await fetch(API + '/api/v1/keywords?include_inactive=' + (includeInactive ? 'true' : 'false'), {headers: authHeaders()});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const kws = await res.json();
+        renderKeywords(Array.isArray(kws) ? kws : []);
+        loadKeywordDomains(kws);
+      } catch(e) {
+        groups.innerHTML = '<section class="dash-block"><div class="dash-block-body"><div class="dash-note">No se pudieron cargar (' + esc(e.message) + ').</div></div></section>';
+      }
+      loadCandidates();
+    }
+
+    async function loadCandidates() {
+      const el = document.getElementById('cand-body');
+      if (!el) return;
+      try {
+        const res = await fetch(API + '/api/v1/keywords/candidates?status=proposed', {headers: authHeaders()});
+        const list = res.ok ? await res.json() : [];
+        renderCandidates(Array.isArray(list) ? list : []);
+      } catch(e) { el.innerHTML = '<div class="dash-note">No se pudieron cargar candidatos.</div>'; }
+    }
+
+    function renderCandidates(list) {
+      const el = document.getElementById('cand-body');
+      const cnt = document.getElementById('cand-count');
+      if (cnt) cnt.textContent = list.length + (list.length === 1 ? ' candidato' : ' candidatos');
+      if (!list.length) { el.innerHTML = '<div class="dash-note">Sin candidatos. Se detectan al procesar documentos (terminos frecuentes fuera del catalogo).</div>'; return; }
+      el.innerHTML = list.map(c => '<div class="kw-row"><div class="kw-info">'
+        + '<div class="kw-term">' + esc(c.term) + ' <span class="kw-prio">' + (c.count || 0) + '</span></div>'
+        + '<div class="kw-desc">' + esc(c.sample_document || '') + '</div></div>'
+        + '<div class="kw-actions">'
+        + '<button class="kw-btn" onclick="approveCandidate(\'' + c.id + '\')">Aprobar</button>'
+        + '<button class="kw-btn" onclick="rejectCandidate(\'' + c.id + '\')">Rechazar</button>'
+        + '</div></div>').join('');
+    }
+
+    async function approveCandidate(id) {
+      try {
+        const res = await fetch(API + '/api/v1/keywords/candidates/' + id + '/approve', {method: 'POST', headers: authHeaders()});
+        if (!res.ok) { showToast('No se pudo aprobar', 'error'); return; }
+        showToast('Candidato agregado al catalogo', 'success');
+        loadKeywords();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    async function rejectCandidate(id) {
+      try {
+        const res = await fetch(API + '/api/v1/keywords/candidates/' + id + '/reject', {method: 'POST', headers: authHeaders()});
+        if (!res.ok) { showToast('No se pudo rechazar', 'error'); return; }
+        showToast('Candidato rechazado', 'success');
+        loadCandidates();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    function kwRowHtml(kw) {
+      const inactive = !kw.is_active;
+      const prio = kw.priority || 1;
+      return '<div class="kw-row' + (inactive ? ' inactive' : '') + '" data-id="' + kw.id + '" data-priority="' + prio + '">'
+        + '<div class="kw-info"><div class="kw-term">' + esc(kw.term) + (prio > 1 ? ' <span class="kw-prio">P' + prio + '</span>' : '') + '</div>'
+        + (kw.description ? '<div class="kw-desc">' + esc(kw.description) + '</div>' : '')
+        + '</div>'
+        + '<div class="kw-actions">'
+        + (inactive
+            ? '<button class="kw-btn" onclick="reactivateKeyword(\'' + kw.id + '\')">Reactivar</button>'
+            : '<button class="kw-btn" onclick="editKeyword(\'' + kw.id + '\', this)">Editar</button>'
+              + '<button class="kw-del" title="Dar de baja" onclick="deleteKeyword(\'' + kw.id + '\', this)"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>')
+        + '</div></div>';
+    }
+
+    function renderKeywords(keywords) {
+      const groups = document.getElementById('kw-groups');
+      const count = document.getElementById('kw-count');
+      if (count) count.textContent = keywords.length + (keywords.length === 1 ? ' termino' : ' terminos');
+      if (!keywords.length) { groups.innerHTML = '<section class="dash-block"><div class="dash-block-body"><div class="dash-note">Sin palabras clave. Agrega la primera arriba.</div></div></section>'; return; }
+      const byDomain = {};
+      keywords.forEach(k => { const d = k.category || 'Sin dominio'; (byDomain[d] = byDomain[d] || []).push(k); });
+      const domains = Object.keys(byDomain).sort((a, b) => (a === 'Sin dominio') ? 1 : (b === 'Sin dominio' ? -1 : a.localeCompare(b)));
+      const tagSvg = '<svg viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41s-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
+      groups.innerHTML = domains.map(d => {
+        const items = byDomain[d].slice().sort((a, b) => a.term.localeCompare(b.term));
+        return '<section class="dash-block kw-group"><div class="dash-block-head">'
+          + '<div class="hd"><span class="dash-ic">' + tagSvg + '</span><h2>' + esc(d) + '</h2></div>'
+          + '<span class="hint">' + items.length + (items.length === 1 ? ' termino' : ' terminos') + '</span></div>'
+          + '<div class="dash-block-body">' + items.map(kwRowHtml).join('') + '</div></section>';
+      }).join('');
+    }
+
+    async function addKeyword() {
+      const term = (document.getElementById('kw-term').value || '').trim();
+      const domain = (document.getElementById('kw-domain').value || '').trim();
+      const desc = (document.getElementById('kw-desc').value || '').trim();
+      const priority = parseInt(document.getElementById('kw-priority').value) || 1;
+      if (!term) { showToast('Escribe un termino', 'error'); return; }
+      try {
+        const res = await fetch(API + '/api/v1/keywords', {
+          method: 'POST', headers: {...authHeaders(), 'Content-Type': 'application/json'},
+          body: JSON.stringify({term: term, domain: domain || null, description: desc || null, priority: priority})
+        });
+        if (res.status === 409) { showToast('Esa palabra clave ya existe', 'error'); return; }
+        if (res.status === 403) { showToast('Solo admin/editor pueden agregar', 'error'); return; }
+        if (!res.ok) { let d = ''; try { d = (await res.json()).detail; } catch(e) {} showToast('No se pudo agregar: ' + (d || ('HTTP ' + res.status)), 'error'); return; }
+        showToast('Palabra clave agregada', 'success');
+        document.getElementById('kw-term').value = '';
+        document.getElementById('kw-desc').value = '';
+        loadKeywords();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    function editKeyword(id, btn) {
+      const row = btn.closest('.kw-row');
+      if (!row) return;
+      const term = row.querySelector('.kw-term') ? row.querySelector('.kw-term').textContent : '';
+      const desc = row.querySelector('.kw-desc') ? row.querySelector('.kw-desc').textContent : '';
+      const group = row.closest('.kw-group');
+      const domEl = group ? group.querySelector('.dash-block-head h2') : null;
+      const dom = domEl ? domEl.textContent : '';
+      const domain = (dom === 'Sin dominio') ? '' : (dom || '');
+      const prio = row.dataset.priority || '1';
+      row.innerHTML = '<div class="kw-edit">'
+        + '<input id="kw-e-term" type="text" value="' + esc(term) + '" placeholder="termino">'
+        + '<input id="kw-e-domain" type="text" list="kw-domains" value="' + esc(domain) + '" placeholder="dominio">'
+        + '<input id="kw-e-desc" type="text" value="' + esc(desc) + '" placeholder="descripcion (opcional)">'
+        + '<select id="kw-e-priority"><option value="1"' + (prio === '1' ? ' selected' : '') + '>Baja</option><option value="2"' + (prio === '2' ? ' selected' : '') + '>Media</option><option value="3"' + (prio === '3' ? ' selected' : '') + '>Alta</option></select>'
+        + '<div class="kw-edit-actions">'
+        + '<button class="kw-btn" onclick="saveKeyword(\'' + id + '\', this)">Guardar</button>'
+        + '<button class="kw-btn" onclick="loadKeywords()">Cancelar</button>'
+        + '</div></div>';
+    }
+
+    async function saveKeyword(id, btn) {
+      const row = btn.closest('.kw-row');
+      const term = (row.querySelector('#kw-e-term').value || '').trim();
+      const domain = (row.querySelector('#kw-e-domain').value || '').trim();
+      const desc = (row.querySelector('#kw-e-desc').value || '').trim();
+      const priority = parseInt(row.querySelector('#kw-e-priority').value) || 1;
+      if (!term) { showToast('El termino no puede estar vacio', 'error'); return; }
+      try {
+        const res = await fetch(API + '/api/v1/keywords/' + id, {
+          method: 'PATCH', headers: {...authHeaders(), 'Content-Type': 'application/json'},
+          body: JSON.stringify({term: term, domain: domain, description: desc, priority: priority})
+        });
+        if (res.status === 409) { showToast('Otra palabra ya usa ese termino', 'error'); return; }
+        if (res.status === 403) { showToast('Solo admin/editor pueden editar', 'error'); return; }
+        if (!res.ok) { let d = ''; try { d = (await res.json()).detail; } catch(e) {} showToast('No se pudo guardar: ' + (d || ('HTTP ' + res.status)), 'error'); return; }
+        showToast('Palabra clave actualizada', 'success');
+        loadKeywords();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    async function deleteKeyword(id, el) {
+      let name = 'esta palabra';
+      if (el) { const r = el.closest('.kw-row'); const t = r && r.querySelector('.kw-term'); if (t) name = t.textContent; }
+      if (!confirm('\u00bfDar de baja "' + name + '"?')) return;
+      try {
+        const res = await fetch(API + '/api/v1/keywords/' + id, {method: 'DELETE', headers: authHeaders()});
+        if (res.status === 403) { showToast('Solo admin/editor pueden dar de baja', 'error'); return; }
+        if (!res.ok) { showToast('No se pudo dar de baja (HTTP ' + res.status + ')', 'error'); return; }
+        showToast('Palabra dada de baja', 'success');
+        loadKeywords();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    async function reactivateKeyword(id) {
+      try {
+        const res = await fetch(API + '/api/v1/keywords/' + id, {
+          method: 'PATCH', headers: {...authHeaders(), 'Content-Type': 'application/json'},
+          body: JSON.stringify({is_active: true})
+        });
+        if (!res.ok) { showToast('No se pudo reactivar (HTTP ' + res.status + ')', 'error'); return; }
+        showToast('Palabra reactivada', 'success');
+        loadKeywords();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    async function importKeywords(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('file', file, file.name);
+      try {
+        const res = await fetch(API + '/api/v1/keywords/import', {method: 'POST', headers: authHeaders(), body: fd});
+        if (!res.ok) { showToast('No se pudo importar (HTTP ' + res.status + ')', 'error'); return; }
+        const d = await res.json();
+        showToast('Importadas ' + (d.imported != null ? d.imported : '?') + ' palabras', 'success');
+        loadKeywords();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+      finally { input.value = ''; }
+    }
+
+    async function exportKeywords() {
+      try {
+        const res = await fetch(API + '/api/v1/keywords/export?format=csv', {headers: authHeaders()});
+        if (!res.ok) { showToast('No se pudo exportar (HTTP ' + res.status + ')', 'error'); return; }
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'keywords.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast('Exportado keywords.csv', 'success');
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    // ── SINONIMOS (concepto + variantes) ──
+    function configTab(tab) {
+      const kw = document.getElementById('config-kw');
+      const syn = document.getElementById('config-syn');
+      const tk = document.getElementById('tab-kw');
+      const ts = document.getElementById('tab-syn');
+      if (!kw || !syn) return;
+      if (tab === 'syn') {
+        kw.style.display = 'none'; syn.style.display = '';
+        tk.classList.remove('active'); ts.classList.add('active');
+        loadSynonymGroups();
+      } else {
+        kw.style.display = ''; syn.style.display = 'none';
+        ts.classList.remove('active'); tk.classList.add('active');
+        loadKeywords();
+      }
+    }
+
+    async function loadSynonymGroups() {
+      const el = document.getElementById('syn-groups');
+      if (!el) return;
+      el.innerHTML = '<section class="dash-block"><div class="dash-block-body"><div class="dash-note">Cargando...</div></div></section>';
+      try {
+        const res = await fetch(API + '/api/v1/synonyms', {headers: authHeaders()});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const groups = data.groups || [];
+        window.__synGroups = groups;
+        renderSynonyms(groups);
+        const cats = [...new Set(groups.map(g => g.category).filter(Boolean))].sort();
+        const dl = document.getElementById('syn-categories');
+        if (dl) dl.innerHTML = cats.map(c => '<option value="' + esc(c) + '"></option>').join('');
+      } catch(e) {
+        el.innerHTML = '<section class="dash-block"><div class="dash-block-body"><div class="dash-note">No se pudieron cargar (' + esc(e.message) + ').</div></div></section>';
+      }
+    }
+
+    const SYN_TAG_SVG = '<svg viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41s-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
+
+    function synRowHtml(g) {
+      const variants = (g.variants || []).join(', ');
+      return '<div class="kw-row"><div class="kw-info">'
+        + '<div class="kw-term">' + esc(g.canonical) + '</div>'
+        + '<div class="kw-desc">' + esc(variants) + '</div></div>'
+        + '<div class="kw-actions">'
+        + '<button class="kw-btn" data-canonical="' + esc(g.canonical) + '" onclick="editSynonym(this)">Editar</button>'
+        + '<button class="kw-del" title="Eliminar" data-canonical="' + esc(g.canonical) + '" onclick="deleteSynonym(this)"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>'
+        + '</div></div>';
+    }
+
+    function renderSynonyms(groups) {
+      const el = document.getElementById('syn-groups');
+      const count = document.getElementById('syn-count');
+      if (count) count.textContent = groups.length + (groups.length === 1 ? ' concepto' : ' conceptos');
+      if (!groups.length) { el.innerHTML = '<section class="dash-block"><div class="dash-block-body"><div class="dash-note">Sin sinonimos.</div></div></section>'; return; }
+      const byCat = {};
+      groups.forEach(g => { const c = g.category || 'general'; (byCat[c] = byCat[c] || []).push(g); });
+      const cats = Object.keys(byCat).sort((a, b) => (a === 'general') ? 1 : (b === 'general' ? -1 : a.localeCompare(b)));
+      el.innerHTML = cats.map(cat => {
+        const items = byCat[cat].slice().sort((a, b) => a.canonical.localeCompare(b.canonical));
+        return '<section class="dash-block kw-group"><div class="dash-block-head">'
+          + '<div class="hd"><span class="dash-ic">' + SYN_TAG_SVG + '</span><h2>' + esc(cat) + '</h2></div>'
+          + '<span class="hint">' + items.length + '</span></div>'
+          + '<div class="dash-block-body">' + items.map(synRowHtml).join('') + '</div></section>';
+      }).join('');
+    }
+
+    function editSynonym(el) {
+      const canonical = el.getAttribute('data-canonical');
+      const g = (window.__synGroups || []).find(x => x.canonical === canonical);
+      if (!g) return;
+      document.getElementById('syn-canonical').value = g.canonical || '';
+      document.getElementById('syn-category').value = g.category || '';
+      document.getElementById('syn-variants').value = (g.variants || []).join(', ');
+      document.getElementById('syn-canonical').focus();
+      showToast('Edita y pulsa Guardar', 'info');
+    }
+
+    async function saveSynonym() {
+      const canonical = (document.getElementById('syn-canonical').value || '').trim();
+      const category = (document.getElementById('syn-category').value || '').trim();
+      const variantsRaw = (document.getElementById('syn-variants').value || '').trim();
+      if (!canonical) { showToast('Escribe el concepto', 'error'); return; }
+      const variants = variantsRaw ? variantsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+      try {
+        const res = await fetch(API + '/api/v1/synonyms', {
+          method: 'POST', headers: {...authHeaders(), 'Content-Type': 'application/json'},
+          body: JSON.stringify({canonical: canonical, category: category || null, variants: variants})
+        });
+        if (res.status === 403) { showToast('Solo admin/editor', 'error'); return; }
+        if (!res.ok) { showToast('No se pudo guardar (HTTP ' + res.status + ')', 'error'); return; }
+        showToast('Sinonimo guardado', 'success');
+        document.getElementById('syn-canonical').value = '';
+        document.getElementById('syn-variants').value = '';
+        loadSynonymGroups();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    async function deleteSynonym(el) {
+      const canonical = el.getAttribute('data-canonical');
+      if (!confirm('\u00bfEliminar el sinonimo "' + canonical + '"?')) return;
+      try {
+        const res = await fetch(API + '/api/v1/synonyms/' + encodeURIComponent(canonical), {method: 'DELETE', headers: authHeaders()});
+        if (res.status === 403) { showToast('Solo admin/editor', 'error'); return; }
+        if (!res.ok && res.status !== 204) { showToast('No se pudo eliminar (HTTP ' + res.status + ')', 'error'); return; }
+        showToast('Sinonimo eliminado', 'success');
+        loadSynonymGroups();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    async function importSynonyms(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('file', file, file.name);
+      try {
+        const res = await fetch(API + '/api/v1/synonyms/import', {method: 'POST', headers: authHeaders(), body: fd});
+        if (!res.ok) { showToast('No se pudo importar (HTTP ' + res.status + ')', 'error'); return; }
+        const d = await res.json();
+        showToast('Importadas ' + (d.imported != null ? d.imported : '?') + ' filas', 'success');
+        loadSynonymGroups();
+      } catch(e) { showToast('Error de conexion', 'error'); }
+      finally { input.value = ''; }
+    }
+
+    async function exportSynonyms() {
+      try {
+        const res = await fetch(API + '/api/v1/synonyms/export?format=csv', {headers: authHeaders()});
+        if (!res.ok) { showToast('No se pudo exportar (HTTP ' + res.status + ')', 'error'); return; }
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'sinonimos.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast('Exportado sinonimos.csv', 'success');
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    const DASH_TRIVIAL = new Set(['hola', 'hola!', 'test', 'prueba', 'buenas', 'buenos dias']);
+    function renderRecentQueries(items) {
+      const el = document.getElementById('dash-recent');
+      if (!el) return;
+      if (items === null) { el.innerHTML = dashNote('Abre un documento y haz una consulta; aqu\u00ed ver\u00e1s las \u00faltimas.'); return; }
+      const seen = {};
+      const qs = [];
+      items.forEach(it => {
+        const d = it.detail || {};
+        const q = String(d.question || d.query || '').trim();
+        if (!q || q.length < 6 || DASH_TRIVIAL.has(q.toLowerCase())) return;
+        const key = q.toLowerCase();
+        if (seen[key]) return;
+        seen[key] = 1;
+        let doc = d.document_name || '';
+        const srcs = d.sources || [];
+        if (!doc && srcs.length && srcs[0] && srcs[0].document_name) doc = srcs[0].document_name;
+        qs.push({ q: q, doc: doc, when: it.created_at });
+      });
+      const hint = document.getElementById('hint-recent');
+      if (hint) hint.textContent = qs.length ? (qs.length + (qs.length === 1 ? ' consulta' : ' recientes')) : 'lo que ya preguntaste';
+      if (!qs.length) { el.innerHTML = dashNote('Todav\u00eda no has hecho consultas.'); return; }
+      el.innerHTML = qs.slice(0, 5).map(x =>
+        '<div class="dash-recent-item">'
+        + '<span class="dash-quote-ic"><svg viewBox="0 0 24 24"><path d="M6 17h3l2-4V7H5v6h3l-2 4zm8 0h3l2-4V7h-6v6h3l-2 4z"/></svg></span>'
+        + '<div class="dash-recent-main"><div class="dash-recent-q">' + esc(x.q.slice(0, 140)) + '</div>'
+        + '<div class="dash-recent-meta">'
+        + (x.doc ? '<span class="dash-badge">' + esc(x.doc) + '</span>' : '')
+        + '<span>' + esc(dashFriendlyTime(x.when)) + '</span>'
+        + '</div></div></div>'
+      ).join('');
+    }
+
+    function renderConversations(convs) {
+      const el = document.getElementById('dash-convs');
+      if (!el) return;
+      const hint = document.getElementById('hint-convs');
+      if (hint) hint.textContent = (convs && convs.length) ? (convs.length + (convs.length === 1 ? ' guardada' : ' guardadas')) : 'retomalas cuando quieras';
+      if (!convs || !convs.length) { el.innerHTML = dashNote('A\u00fan no tienes conversaciones guardadas.'); return; }
+      el.innerHTML = convs.slice(0, 6).map(c =>
+        '<div class="dash-conv" onclick="openConversation(\'' + c.id + '\')">'
+        + '<span class="dash-conv-ic"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></span>'
+        + '<div class="dash-conv-body"><div class="dash-conv-title">' + esc(c.title || 'Conversaci\u00f3n') + '</div>'
+        + '<div class="dash-conv-time">' + esc(dashFriendlyTime(c.updated_at || c.created_at)) + '</div></div>'
+        + '<button class="dash-conv-del" title="Eliminar" onclick="event.stopPropagation();deleteConversation(\'' + c.id + '\')">'
+        + '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>'
+        + '<span class="dash-chev"><svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span>'
+        + '</div>'
+      ).join('');
+    }
+
+    async function deleteConversation(id) {
+      if (!confirm('\u00bfEliminar esta conversaci\u00f3n?')) return;
+      try {
+        const res = await fetch(API + '/api/v1/chat/conversations/' + id, {method: 'DELETE', headers: authHeaders()});
+        if (!res.ok && res.status !== 204) throw new Error('HTTP ' + res.status);
+        if (window.currentConvId === id) window.currentConvId = null;
+        showToast('Conversaci\u00f3n eliminada', 'success');
+        loadDashboard();
+      } catch(e) { showToast('No se pudo eliminar: ' + e.message, 'error'); }
+    }
+
+    async function openConversation(id) {
+      try {
+        const res = await fetch(API + '/api/v1/chat/conversations/' + id, {headers: authHeaders()});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const conv = await res.json();
+        window.currentConvId = conv.id;
+        document.getElementById('dashboard-view').style.display = 'none';
+        document.getElementById('users-view').style.display = 'none';
+        document.getElementById('config-view').style.display = 'none';
+        document.getElementById('upload-card').style.display = 'none';
+        document.getElementById('search-card').style.display = 'none';
+        document.getElementById('patient-card').style.display = 'none';
+        document.getElementById('right-column').style.display = '';
+        document.getElementById('pdf-title').textContent = conv.title || 'Conversaci\u00f3n';
+        const box = document.getElementById('chat-messages');
+        if (box) {
+          box.innerHTML = '';
+          (conv.messages || []).forEach(m => {
+            addChatMsg(m.role === 'user' ? 'user' : 'ai', m.content || '', dashFriendlyTime(m.created_at), m.sources || [], false, m.id, m.feedback);
+          });
+        }
+        const cs = document.getElementById('chat-section');
+        if (cs) { cs.classList.remove('collapsed'); cs.classList.add('expanded'); }
+        loadConvOptions();
+        scrollChatToBottom();
+        currentView = 'conv';
+      } catch(e) {
+        showToast('No se pudo abrir la conversaci\u00f3n', 'error');
+      }
+    }
+
+    async function loadDashboard() {
+      if (dashLoading) return;
+      dashLoading = true;
+      const hdr = {headers: authHeaders()};
+      const safe = url => fetch(API + url, hdr).then(r => r.ok ? r.json() : null).catch(() => null);
+      try {
+        const convs = await safe('/api/v1/chat/conversations');
+        renderConversations(convs);
+        // "Tus últimas consultas" sale SOLO de tus conversaciones reales.
+        let qitems = null;
+        if (Array.isArray(convs)) {
+          qitems = [];
+          const details = await Promise.all(convs.slice(0, 8).map(c => safe('/api/v1/chat/conversations/' + c.id)));
+          details.forEach(conv => {
+            const msgs = (conv && conv.messages) || [];
+            msgs.forEach((m, idx) => {
+              if (m.role !== 'user' || !m.content) return;
+              let doc = '';
+              const ai = msgs.slice(idx + 1).find(x => x.role === 'assistant' && (x.sources || []).length);
+              if (ai && ai.sources && ai.sources[0]) doc = ai.sources[0].document || '';
+              qitems.push({ detail: { question: m.content, document_name: doc }, created_at: m.created_at });
+            });
+          });
+          qitems.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        }
+        renderRecentQueries(qitems);
+        renderDownloads();
+      } finally {
+        dashLoading = false;
+      }
+    }
+
     async function deleteDoc(docId, docName) {
       if (!confirm('Eliminar "' + docName + '"?')) return;
       try {
@@ -721,13 +1768,20 @@
       const el = document.getElementById('doc-' + docId);
       if (el) el.classList.add('active');
 
+      document.getElementById('dashboard-view').style.display = 'none';
+      document.getElementById('users-view').style.display = 'none';
+      document.getElementById('config-view').style.display = 'none';
       document.getElementById('upload-card').style.display = 'none';
+      document.getElementById('search-card').style.display = '';
+      document.getElementById('patient-card').style.display = '';
       document.getElementById('right-column').style.display = '';
+      renderPatient(null, 'loading', null, null);
       document.getElementById('pdf-title').textContent = doc.original_name;
       loadPdf(docId);
-      if (doc.status === 'completed') {
-        loadDocData(docId);
-      }
+      // Cargar SIEMPRE el estado real (la función maneja pending/error). Antes
+      // solo se cargaba si doc.status==='completed', y con un estado de lista
+      // desactualizado el panel quedaba en "cargando".
+      loadDocData(docId);
     }
 
     function showDashboard() {
@@ -740,8 +1794,12 @@
       pageSortedOrder = {};
       sortedPageKeys = [];
       docDataStatus = 'idle';
+      document.getElementById('dashboard-view').style.display = '';
+      document.getElementById('users-view').style.display = 'none';
+      document.getElementById('config-view').style.display = 'none';
       document.getElementById('upload-card').style.display = '';
-      document.getElementById('search-card').style.display = '';
+      document.getElementById('search-card').style.display = 'none';
+      document.getElementById('patient-card').style.display = 'none';
       document.getElementById('right-column').style.display = 'none';
       document.querySelectorAll('.doc-item').forEach(el => el.classList.remove('active'));
       const sInput = document.getElementById('search-input');
@@ -757,15 +1815,16 @@
         zone.className = 'upload-zone';
         zone.innerHTML =
           '<div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></div>' +
-          '<div class="upload-text" id="upload-text">Arrastra tu PDF aqui</div>' +
-          '<div class="upload-link" id="upload-link">o selecciona un archivo</div>' +
-          '<div class="upload-hint">Solo archivos .pdf - Maximo 100MB</div>' +
+          '<div class="upload-text" id="upload-text">Arrastra tus PDF aqui</div>' +
+          '<div class="upload-link" id="upload-link">o haz clic para elegirlos</div>' +
+          '<div class="upload-hint">Solo PDF - hasta 100 MB por archivo</div>' +
           '<div class="upload-status" id="upload-status"></div>' +
           '<input type="file" id="file-input" accept=".pdf" multiple style="display:none">';
         zone.onclick = () => document.getElementById('file-input').click();
         const progress = document.getElementById('upload-progress');
         if (progress) progress.classList.remove('show');
       }
+      loadDashboard();
     }
 
     async function loadDocData(docId, force) {
@@ -779,10 +1838,15 @@
         if (selectedDocId !== docId) return;
         docChunks = data.chunks || [];
         docWordBoxes = data.word_boxes || {};
+        docWordBoxesDpi = Number(data.word_boxes_dpi) || 200;
         buildWordIndex();
         docDataStatus = 'ready';
         generateSearchChipsFromChunks(docChunks);
         populatePageFilter();
+        populateDomainFilter();
+        populateSectionFilter();
+        renderPatient(data.extracted_data, data.extract_status, data.extract_started_at, data.extract_eta_s);
+        renderOcrWarning(data.ocr_low_confidence_pages);
         updateSearchHint();
       } catch(e) {
         console.error('Error loading doc data:', e);
@@ -805,6 +1869,20 @@
         hint.textContent = 'No se pudieron cargar los fragmentos. La busqueda puede fallar.';
       } else if (docDataStatus === 'ready') {
         hint.style.display = 'none';
+      }
+    }
+
+    function renderOcrWarning(lowPages) {
+      const warn = document.getElementById('ocr-warn');
+      if (!warn) return;
+      const pages = Array.isArray(lowPages) ? lowPages : [];
+      if (pages.length) {
+        warn.style.display = '';
+        warn.textContent = 'OCR de baja confianza en la(s) pagina(s): ' + pages.join(', ') +
+          '. El texto puede ser inexacto (documento manuscrito o degradado); revisalo antes de confiar en el.';
+      } else {
+        warn.style.display = 'none';
+        warn.textContent = '';
       }
     }
 
@@ -881,7 +1959,12 @@
         const canvas = document.createElement('canvas');
         canvas.dataset.page = pageNum;
         canvas.style.cursor = 'pointer';
-        canvas.onclick = () => { pdfCurrentPage = pageNum; updatePdfPageIndicator(); };
+        canvas.onclick = (e) => {
+          pdfCurrentPage = pageNum;
+          updatePdfPageIndicator();
+          const hit = hitTestWord(pageNum, e, canvas);
+          if (hit >= 0) openWordEdit(pageNum, hit, e.clientX, e.clientY);
+        };
         const ctx = canvas.getContext('2d');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -1076,13 +2159,220 @@
         pages.map(p => '<option value="' + p + '">Pag. ' + (p + 1) + '</option>').join('');
     }
 
+    function populateDomainFilter() {
+      const sel = document.getElementById('filter-domain');
+      if (!sel) return;
+      const s = new Set();
+      (docChunks || []).forEach(c => (c.domains || []).forEach(d => s.add(d)));
+      const domains = [...s].sort();
+      sel.innerHTML = '<option value="all">Dominio: Todos</option>' +
+        domains.map(d => '<option value="' + esc(d) + '">' + esc(d) + '</option>').join('');
+      if (!domains.length) sel.innerHTML = '<option value="all">Dominio: sin datos</option>';
+    }
+
+    function buildPageTextForChunks(pred) {
+      const map = {};
+      (docChunks || []).forEach(c => {
+        if (!pred(c)) return;
+        const t = normWord(c.content || '');
+        (c.page_numbers || []).forEach(p => { map[p] = (map[p] || '') + ' ' + t; });
+      });
+      return map;
+    }
+
+    function populateSectionFilter() {
+      const sel = document.getElementById('filter-section');
+      if (!sel) return;
+      const set = new Set();
+      (docChunks || []).forEach(c => { const s = (c.chunk_metadata || {}).section; if (s) set.add(s); });
+      const secs = [...set].sort();
+      sel.innerHTML = '<option value="all">Seccion: Todas</option>' +
+        secs.map(s => '<option value="' + esc(s) + '">' + esc(String(s).slice(0, 60)) + '</option>').join('');
+    }
+
+    // ── DATOS DEL PACIENTE ──
+    const PATIENT_DISCLAIMER = '<div class="patient-disclaimer">Extraccion automatica; puede estar incompleta o contener errores. Para mas detalle, pregunta al asistente.</div>';
+
+    let patientTicker = null;
+    let patientPollTimer = null;
+    // Arranque monotónico por documento: la cuenta/estado NO se reinicia al
+    // re-renderizar (evita el "salto" del panel de paciente).
+    let patientStartByDoc = {};
+    function stopPatientTimers() {
+      if (patientTicker) { clearInterval(patientTicker); patientTicker = null; }
+      if (patientPollTimer) { clearInterval(patientPollTimer); patientPollTimer = null; }
+    }
+
+    function patientFieldsHtml(data) {
+      const field = (label, val) => {
+        const v = (val === null || val === undefined) ? '' : String(val).trim();
+        return '<div class="patient-field"><label>' + label + '</label><span class="' + (v ? '' : 'empty') + '">' + (v ? esc(v) : '&mdash;') + '</span></div>';
+      };
+      return '<div class="patient-grid">'
+        + field('Nombre', data.nombre)
+        + field('Edad', data.edad)
+        + field('Sexo', data.sexo)
+        + field('DNI / Documento', data.dni)
+        + field('Historia clinica', data.historia_clinica)
+        + field('Fecha de atencion', data.fecha_atencion)
+        + '</div>';
+    }
+
+    // Estado cualitativo (sin cuenta atrás): solo "cómo va".
+    function patientStateLabel(elapsed) {
+      if (elapsed < 45) return 'Analizando el documento…';
+      if (elapsed < 100) return 'Procesando los datos del paciente…';
+      return 'Casi listo…';
+    }
+
+    function renderPatient(data, status, startedAt, eta) {
+      const body = document.getElementById('patient-body');
+      const statusEl = document.getElementById('patient-status');
+      if (!body) return;
+      stopPatientTimers();
+      window.__patientData = (data && typeof data === 'object') ? data : {};
+      const shownKeys = ['nombre', 'edad', 'sexo', 'dni', 'historia_clinica', 'fecha_atencion'];
+      const hasData = data && shownKeys.some(k => data[k]);
+      const st = status || (hasData ? 'done' : null);
+
+      if (hasData) {
+        const sig = 'done|' + JSON.stringify(data);
+        if (body.dataset.sig !== sig) {
+          body.innerHTML = patientFieldsHtml(data)
+            + '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
+            + '<button class="ask-assistant-btn" onclick="focusChat()">Preguntar al asistente</button>'
+            + '<button class="ask-assistant-btn" onclick="editPatient()">Editar</button>'
+            + '</div>' + PATIENT_DISCLAIMER;
+          body.dataset.sig = sig;
+        }
+        if (statusEl) statusEl.textContent = data.manual ? 'Editado manualmente' : 'Extraido automaticamente';
+        return;
+      }
+
+      if (st === 'loading') {
+        if (body.dataset.sig !== 'loading') {
+          body.innerHTML = '<div class="patient-progress">'
+            + '<div class="patient-progress-label"><span class="patient-spinner"></span> Cargando datos del paciente…</div>'
+            + '</div>' + PATIENT_DISCLAIMER;
+          body.dataset.sig = 'loading';
+        }
+        if (statusEl) statusEl.textContent = '';
+        return;
+      }
+
+      if (st !== 'done' && st !== 'error') {
+        // Arranque monotónico por documento: el estado NO se reinicia al
+        // re-renderizar (antes se reseteaba el contador en cada selección/poll).
+        const docKey = selectedDocId || 'doc';
+        const src = startedAt || '';
+        if (!patientStartByDoc[docKey] || patientStartByDoc[docKey].src !== src) {
+          patientStartByDoc[docKey] = {
+            start: startedAt ? new Date(startedAt).getTime() : Date.now(),
+            src: src,
+          };
+        }
+        const started = patientStartByDoc[docKey].start;
+        const label = () => patientStateLabel(Math.max(0, (Date.now() - started) / 1000));
+        if (body.dataset.sig !== 'pending') {
+          body.innerHTML = '<div class="patient-progress">'
+            + '<div class="patient-progress-label"><span class="patient-spinner"></span> <span id="patient-progress-text">' + label() + '</span></div>'
+            + '<div class="patient-progress-sub">Extraemos nombre, edad, DNI y fecha en segundo plano. Puedes seguir usando el documento.</div>'
+            + '</div>' + PATIENT_DISCLAIMER;
+          body.dataset.sig = 'pending';
+        } else {
+          const t = document.getElementById('patient-progress-text');
+          if (t) t.textContent = label();
+        }
+        patientTicker = setInterval(() => {
+          const t = document.getElementById('patient-progress-text');
+          if (t) t.textContent = label();
+        }, 1500);
+        patientPollTimer = setInterval(() => { if (selectedDocId) loadDocData(selectedDocId, true); }, 5000);
+        if (statusEl) statusEl.textContent = 'Analizando…';
+        return;
+      }
+
+      if (body.dataset.sig !== 'empty|' + st) {
+        const msg = (st === 'error')
+          ? 'No se pudo analizar el documento.'
+          : 'No se pudieron extraer datos legibles de este documento (OCR con ruido).';
+        body.innerHTML = '<div class="dash-note">' + msg + ' <span class="patient-retry" onclick="reloadDocData()">Reintentar</span></div>'
+          + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'
+          + '<button class="ask-assistant-btn" onclick="editPatient()">Editar manualmente</button>'
+          + '<button class="ask-assistant-btn" onclick="focusChat()">Preguntar al asistente</button>'
+          + '</div>' + PATIENT_DISCLAIMER;
+        body.dataset.sig = 'empty|' + st;
+      }
+      if (statusEl) statusEl.textContent = '';
+    }
+
+    function editPatient() {
+      const body = document.getElementById('patient-body');
+      if (!body) return;
+      const d = window.__patientData || {};
+      const f = (label, id, val) => '<div class="uf-field"><label>' + label + '</label><input id="' + id + '" type="text" value="' + esc(val || '') + '"></div>';
+      body.innerHTML = '<div class="patient-edit">'
+        + f('Nombre', 'pf-nombre', d.nombre)
+        + f('Edad', 'pf-edad', d.edad)
+        + f('Sexo', 'pf-sexo', d.sexo)
+        + f('DNI / Documento', 'pf-dni', d.dni)
+        + f('Historia clinica', 'pf-hc', d.historia_clinica)
+        + f('Fecha de atencion', 'pf-fecha', d.fecha_atencion)
+        + '</div>'
+        + '<div style="display:flex;gap:8px;margin-top:14px">'
+        + '<button class="ask-assistant-btn" onclick="savePatient()">Guardar</button>'
+        + '<button class="ask-assistant-btn" onclick="renderPatient(window.__patientData, \'done\', null, 120)">Cancelar</button>'
+        + '</div>'
+        + PATIENT_DISCLAIMER;
+    }
+
+    async function savePatient() {
+      if (!selectedDocId) return;
+      const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+      const body = {
+        nombre: val('pf-nombre') || null,
+        edad: val('pf-edad') || null,
+        sexo: val('pf-sexo') || null,
+        dni: val('pf-dni') || null,
+        historia_clinica: val('pf-hc') || null,
+        fecha_atencion: val('pf-fecha') || null,
+      };
+      try {
+        const res = await fetch(API + '/api/v1/documents/' + selectedDocId + '/patient', {
+          method: 'PATCH', headers: {...authHeaders(), 'Content-Type': 'application/json'},
+          body: JSON.stringify(body)
+        });
+        if (res.status === 403) { showToast('No tienes permiso para editar', 'error'); return; }
+        if (!res.ok) { showToast('No se pudo guardar (HTTP ' + res.status + ')', 'error'); return; }
+        const data = await res.json();
+        showToast('Datos del paciente guardados', 'success');
+        renderPatient(data, 'done', null, 120);
+      } catch(e) { showToast('Error de conexion', 'error'); }
+    }
+
+    function reloadDocData() {
+      if (selectedDocId) loadDocData(selectedDocId, true);
+    }
+
+    function focusChat() {
+      const section = document.getElementById('chat-section');
+      if (section) { section.classList.remove('collapsed'); section.classList.add('expanded'); }
+      loadConvOptions();
+      loadChatDomains();
+      const input = document.getElementById('chat-input');
+      if (input) input.focus();
+    }
+
     // ── SEARCH ──
     let lastSearchQuery = '';
     let lastFocusWord = '';
     let selectedOccurrence = null;
     let lastOccurrences = [];
+    let lastApproxOccurrences = [];
     let lastSearchPageFilter = null;
+    let lastSearchDomainFilter = null;
     let lastMatchedByPage = {};
+    let lastApproxByPage = {};
     let sortedPageKeys = [];
     let pdfPageScales = {};
     let searchSeq = 0;
@@ -1099,6 +2389,16 @@
     function compactWord(s) {
       return normWord(s).replace(/\s+/g, '');
     }
+
+    // Stopwords que NO deben convertirse en tokens de búsqueda al expandir
+    // sinónimos (p. ej. "carpeta DE historia clinica" metía "de" y coincidía
+    // con todos los "de" del documento). Mismo criterio que _STOP del backend.
+    const SEARCH_STOP = new Set([
+      'de', 'del', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas',
+      'y', 'o', 'u', 'a', 'al', 'en', 'con', 'por', 'para', 'se', 'su', 'sus',
+      'lo', 'le', 'les', 'es', 'son', 'no', 'si', 'me', 'te', 'ni', 'ya',
+      'ha', 'he', 'mas', 'que', 'como', 'the', 'of', 'and',
+    ]);
 
     function buildWordIndex() {
       pageBoxMeta = {};
@@ -1124,12 +2424,32 @@
       sortedPageKeys = keys;
     }
 
+    function synonymFormsFor(focusWord) {
+      const raw = normWord(focusWord);
+      const compact = compactWord(focusWord);
+      const out = [];
+      for (const g of (synonymGroups || [])) {
+        const forms = [g.canonical, ...(g.variants || [])];
+        const norms = forms.map(f => ({ f: f, n: normWord(f), c: compactWord(f) }));
+        const hit = norms.some(x => (raw && x.n === raw) || (compact && x.c === compact));
+        if (!hit) continue;
+        for (const x of norms) {
+          if (!x.f) continue;
+          if ((raw && x.n === raw) || (compact && x.c === compact)) continue;
+          if (!out.includes(x.f)) out.push(x.f);
+        }
+      }
+      return out;
+    }
+
     function expandFocusVariants(focusWord) {
       const raw = normWord(focusWord);
       const compact = compactWord(focusWord);
       const tokens = new Set();
       const phrases = [];
       const addToken = (t) => { if (t && t.length >= 2) tokens.add(t); };
+      // Los tokens que vienen de sinónimos sí filtran stopwords (evita "de").
+      const addSynToken = (t) => { if (t && t.length >= 2 && !SEARCH_STOP.has(t)) tokens.add(t); };
       if (raw) {
         raw.split(' ').filter(Boolean).forEach(addToken);
         if (raw.split(' ').filter(Boolean).every(w => w.length === 1)) {
@@ -1155,13 +2475,13 @@
         for (const f of formNorms) {
           const words = f.n.split(' ').filter(Boolean);
           if (words.every(w => w.length === 1) && words.length > 1) {
-            addToken(f.c || words.join(''));
+            addSynToken(f.c || words.join(''));
           } else {
-            words.forEach(addToken);
+            words.forEach(addSynToken);
             if (words.length > 1) phrases.push(words);
             else if (f.n) phrases.push([f.n]);
           }
-          if (f.c) addToken(f.c);
+          if (f.c) addSynToken(f.c);
         }
       }
       const uniqPhrases = [];
@@ -1182,6 +2502,8 @@
       if (!variants || (!m.n && !m.c)) return false;
       if (variants.tokens.has(m.n) || variants.tokens.has(m.c)) return true;
       if (variants.compact && variants.compact.length >= 3 && m.c === variants.compact) return true;
+      // Prefijo: "HC" encuentra códigos como "HC-2025-..." (compacto hc2025...).
+      if (variants.compact && variants.compact.length >= 2 && m.c.startsWith(variants.compact)) return true;
       if (variants.rawRe && variants.rawRe.test(m.n)) return true;
       for (const t of variants.tokens) {
         if (!t || t.length < 3) continue;
@@ -1189,6 +2511,75 @@
         if (m.n.includes(' ' + t + ' ')) return true;
       }
       return false;
+    }
+
+    // Confusiones típicas de OCR (manuscrito/escaneo): se pliegan a una forma
+    // canónica para que "Ed"≈"6d", "29/09"≈"29/0g", "5"≈"s", etc.
+    const OCR_CONFUSIONS = {
+      '0': 'o', '1': 'i', '5': 's', '6': 'g', '9': 'g',
+      '8': 'b', '2': 'z', '4': 'a', '3': 'e', '7': 't',
+    };
+    function foldOcr(s) {
+      let out = '';
+      for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        out += (OCR_CONFUSIONS[ch] || ch);
+      }
+      return out;
+    }
+
+    // Distancia de edición (Levenshtein) acotada. Tolerante a confusiones OCR.
+    function editDistance(a, b) {
+      const la = a.length, lb = b.length;
+      let prev = new Array(lb + 1);
+      for (let j = 0; j <= lb; j++) prev[j] = j;
+      for (let i = 1; i <= la; i++) {
+        const cur = new Array(lb + 1);
+        cur[0] = i;
+        for (let j = 1; j <= lb; j++) {
+          const cost = (a[i - 1] === b[j - 1]) ? 0 : 1;
+          cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+        }
+        prev = cur;
+      }
+      return prev[lb];
+    }
+
+    // Puntuación APROXIMADA (posible error de OCR): devuelve la MENOR distancia
+    // de edición al término (Infinity si no coincide). Solo para consultas de una
+    // sola palabra de ≥3 letras. Cuenta como iguales los caracteres que el OCR
+    // confunde; tolera 1 carácter (o 2 en términos largos).
+    function boxFuzzyScore(m, variants) {
+      if (!m || !variants) return Infinity;
+      if (variants.raw.indexOf(' ') >= 0) return Infinity; // solo término único
+      const q0 = variants.compact || '';
+      if (q0.length < 3) return Infinity;
+      const q = foldOcr(q0);
+      const maxEdits = q0.length >= 6 ? 2 : 1;
+      let best = Infinity;
+      const cands = [];
+      if (m.c) cands.push(m.c);
+      if (m.n) for (const w of m.n.split(' ')) if (w) cands.push(w);
+      for (const t of cands) {
+        if (t.length < 3) continue;
+        const ft = foldOcr(t);
+        if (Math.abs(t.length - q0.length) <= maxEdits) {
+          const d = editDistance(ft, q);
+          if (d < best) best = d;
+        }
+        // Palabra pegada por el OCR (p. ej. "FemandeAMARO"): ventanas (≥5 letras).
+        if (q0.length >= 5 && t.length > q0.length + maxEdits) {
+          for (let s = 0; s + q0.length <= ft.length; s++) {
+            const d = editDistance(ft.substr(s, q0.length), q);
+            if (d < best) best = d;
+          }
+        }
+      }
+      return best <= maxEdits ? best : Infinity;
+    }
+
+    function boxFuzzyMatchesMeta(m, variants) {
+      return boxFuzzyScore(m, variants) !== Infinity;
     }
 
     function findPhraseIndices(sortedMetas, phraseTokens) {
@@ -1243,7 +2634,9 @@
     function findWordOccurrences(variants, pageFilter) {
       const occs = [];
       const matchedByPage = {};
-      if (!variants || !variants.raw) return { occs, matchedByPage };
+      const approx = [];
+      const approxByPage = {};
+      if (!variants || !variants.raw) return { occs, matchedByPage, approx, approxByPage };
       const seen = new Set();
       const keys = sortedPageKeys.length ? sortedPageKeys : Object.keys(pageBoxMeta);
       for (let ki = 0; ki < keys.length; ki++) {
@@ -1254,6 +2647,8 @@
         const order = pageSortedOrder[pk] || [];
         const pageMatched = [];
         matchedByPage[pageIdx] = pageMatched;
+        const pageApprox = [];
+        approxByPage[pageIdx] = pageApprox;
 
         if (variants.phrases.length) {
           const sorted = order.map(i => metas[i]);
@@ -1294,17 +2689,36 @@
             pk,
           });
         }
+
+        // Aproximadas (posible error de OCR): excluyen las exactas ya halladas.
+        for (let i = 0; i < metas.length; i++) {
+          if (pageMatched.indexOf(i) >= 0) continue;
+          const fscore = boxFuzzyScore(metas[i], variants);
+          if (fscore === Infinity) continue;
+          pageApprox.push(i);
+          approx.push({
+            page: pageIdx,
+            boxIndex: i,
+            endBoxIndex: i,
+            matchedText: metas[i].b.text,
+            pk,
+            fuzzyScore: fscore,
+          });
+        }
       }
       occs.sort((a, b) => a.page - b.page || a.boxIndex - b.boxIndex);
-      return { occs, matchedByPage };
+      // Las aproximadas, de MÁS a MENOS parecidas (menor distancia primero).
+      approx.sort((a, b) => (a.fuzzyScore - b.fuzzyScore) || a.page - b.page || a.boxIndex - b.boxIndex);
+      return { occs, matchedByPage, approx, approxByPage };
     }
 
-    function renderOccList(occs, focusWord) {
+    function renderOccList(occs, focusWord, approx) {
       const resultsDiv = document.getElementById('search-results');
       const variants = lastFocusVariants;
+      const approxList = approx || [];
       const nOcc = occs.length;
 
-      if (!nOcc) {
+      if (!nOcc && !approxList.length) {
         let msg = 'No se encontró «' + esc(focusWord) + '» ni sus variantes en este documento.';
         let examples = '<div class="empty-examples">Prueba: <span onclick="tryExample(this)">diagnostico</span>, <span onclick="tryExample(this)">dni</span>, <span onclick="tryExample(this)">historia clinica</span></div>';
         if (docDataStatus === 'loading') {
@@ -1323,31 +2737,49 @@
         return;
       }
 
-      const forms = {};
-      occs.forEach(o => {
-        const f = o.matchedText || '';
-        forms[f] = (forms[f] || 0) + 1;
-      });
-      const formList = Object.entries(forms).sort((a, b) => b[1] - a[1]);
-      const showOccs = occs.slice(0, 50);
-      const parts = [];
-      if (formList.length > 1) {
-        parts.push('<div class="search-stats" style="margin-bottom:8px">Formas: ' +
-          formList.map(([f, c]) => '«' + esc(f) + '» ' + c).join(' · ') + '</div>');
-      }
-      parts.push(showOccs.map((o, i) => {
+      const occHtml = (o, i, total) => {
         const ctx = buildOccContext(o.pk, o.boxIndex, variants);
         return '<div class="occ-item" data-page="' + o.page + '" data-box="' + o.boxIndex + '" onclick="goToOccurrence(' + o.page + ',' + o.boxIndex + ')">' +
-          '<div class="occ-meta">Pagina ' + (o.page + 1) + ' &middot; «' + esc(o.matchedText || focusWord) + '» &middot; ' + (i + 1) + '/' + nOcc + '</div>' +
+          '<div class="occ-meta">Pagina ' + (o.page + 1) + ' &middot; «' + esc(o.matchedText || focusWord) + '» &middot; ' + (i + 1) + '/' + total + '</div>' +
           '<div class="occ-context">' + ctx + '</div>' +
           '<div class="result-actions">' +
           '<span class="result-action" onclick="event.stopPropagation();goToOccurrence(' + o.page + ',' + o.boxIndex + ')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/></svg>Ver en el PDF</span>' +
           '</div>' +
         '</div>';
-      }).join(''));
-      if (nOcc > showOccs.length) {
-        parts.push('<div class="search-stats">y ' + (nOcc - showOccs.length) + ' mas...</div>');
+      };
+
+      const parts = [];
+      if (nOcc) {
+        const forms = {};
+        occs.forEach(o => {
+          const f = o.matchedText || '';
+          forms[f] = (forms[f] || 0) + 1;
+        });
+        const formList = Object.entries(forms).sort((a, b) => b[1] - a[1]);
+        const showOccs = occs.slice(0, 50);
+        if (formList.length > 1) {
+          parts.push('<div class="search-stats" style="margin-bottom:8px">Formas: ' +
+            formList.map(([f, c]) => '«' + esc(f) + '» ' + c).join(' · ') + '</div>');
+        }
+        parts.push(showOccs.map((o, i) => occHtml(o, i, nOcc)).join(''));
+        if (nOcc > showOccs.length) {
+          parts.push('<div class="search-stats">y ' + (nOcc - showOccs.length) + ' mas...</div>');
+        }
       }
+
+      if (approxList.length) {
+        const best = approxList[0];
+        const hint = (nOcc === 0 && best)
+          ? ' &mdash; ¿quisiste decir «' + esc(best.matchedText) + '»?'
+          : '';
+        parts.push('<div class="search-stats" style="margin:10px 0 8px">Aproximados (posible error de OCR)' + hint + ':</div>');
+        const showApprox = approxList.slice(0, 50);
+        parts.push(showApprox.map((o, i) => occHtml(o, i, approxList.length)).join(''));
+        if (approxList.length > showApprox.length) {
+          parts.push('<div class="search-stats">y ' + (approxList.length - showApprox.length) + ' mas...</div>');
+        }
+      }
+
       resultsDiv.innerHTML = parts.join('');
     }
 
@@ -1368,6 +2800,14 @@
       const variants = expandFocusVariants(lastFocusWord);
       lastFocusVariants = variants;
 
+      const synEl = document.getElementById('search-synonyms');
+      if (synEl) {
+        const forms = synonymFormsFor(lastFocusWord);
+        synEl.innerHTML = forms.length
+          ? 'Tambien buscando: <b>' + forms.slice(0, 8).map(function (f) { return esc(f); }).join(', ') + '</b>'
+          : '';
+      }
+
       const seq = ++searchSeq;
       selectedOccurrence = null;
       document.querySelectorAll('.occ-item').forEach(r => r.classList.remove('active'));
@@ -1376,19 +2816,48 @@
       const pageFilter = (pageVal && pageVal !== 'all') ? parseInt(pageVal) : null;
       lastSearchPageFilter = pageFilter;
       const hasBoxes = Object.keys(pageBoxMeta).length > 0;
-      const { occs, matchedByPage } = hasBoxes
+      const { occs, matchedByPage, approx, approxByPage } = hasBoxes
         ? findWordOccurrences(variants, pageFilter)
-        : { occs: [], matchedByPage: {} };
+        : { occs: [], matchedByPage: {}, approx: [], approxByPage: {} };
+
+      // Filtro por dominio (por chunk): solo ocurrencias dentro del contenido
+      // de chunks que pertenecen al dominio seleccionado.
+      const domEl = document.getElementById('filter-domain');
+      const secEl = document.getElementById('filter-section');
+      const domainFilter = (domEl && domEl.value && domEl.value !== 'all') ? domEl.value : null;
+      const sectionFilter = (secEl && secEl.value && secEl.value !== 'all') ? secEl.value : null;
+      lastSearchDomainFilter = domainFilter;
+      if (domainFilter || sectionFilter) {
+        const dtext = buildPageTextForChunks(c =>
+          (!domainFilter || (c.domains || []).includes(domainFilter)) &&
+          (!sectionFilter || (c.chunk_metadata || {}).section === sectionFilter));
+        const kept = occs.filter(o => {
+          const t = dtext[o.page];
+          return t && t.indexOf(normWord(o.matchedText)) >= 0;
+        });
+        occs.length = 0; kept.forEach(o => occs.push(o));
+        Object.keys(matchedByPage).forEach(k => delete matchedByPage[k]);
+        occs.forEach(o => { (matchedByPage[o.page] = matchedByPage[o.page] || []).push(o.boxIndex); });
+        const keptApprox = approx.filter(o => {
+          const t = dtext[o.page];
+          return t && t.indexOf(normWord(o.matchedText)) >= 0;
+        });
+        approx.length = 0; keptApprox.forEach(o => approx.push(o));
+        Object.keys(approxByPage).forEach(k => delete approxByPage[k]);
+        approx.forEach(o => { (approxByPage[o.page] = approxByPage[o.page] || []).push(o.boxIndex); });
+      }
 
       if (seq !== searchSeq) return [];
       lastMatchedByPage = matchedByPage;
-      if (hasBoxes && occs.length) {
-        highlightFromMatches(matchedByPage, null);
+      lastApproxByPage = approxByPage;
+      if (hasBoxes && (occs.length || approx.length)) {
+        highlightFromMatches(matchedByPage, null, approxByPage);
       } else {
         clearPdfMarks();
       }
 
       lastOccurrences = occs;
+      lastApproxOccurrences = approx;
 
       const statsBits = [];
       if (occs.length) {
@@ -1396,15 +2865,25 @@
         statsBits.push(occs.length + ' aparicion' + (occs.length === 1 ? '' : 'es') +
           (nForms > 1 ? ' (' + nForms + ' variantes)' : ''));
       }
+      if (approx.length) {
+        statsBits.push(approx.length + ' aproximada' + (approx.length === 1 ? '' : 's'));
+      }
       if (pageFilter != null) {
         statsBits.push('pagina ' + (pageFilter + 1));
       }
+      if (domainFilter) {
+        statsBits.push('dominio: ' + domainFilter);
+      }
+      if (sectionFilter) {
+        statsBits.push('seccion: ' + String(sectionFilter).slice(0, 30));
+      }
       document.getElementById('search-stats').textContent = statsBits.join(' · ');
 
-      renderOccList(occs, lastFocusWord);
+      renderOccList(occs, lastFocusWord, approx);
 
-      if (autoOpenFirst && occs.length) {
-        goToOccurrence(occs[0].page, occs[0].boxIndex);
+      if (autoOpenFirst && (occs.length || approx.length)) {
+        const first = occs.length ? occs[0] : approx[0];
+        goToOccurrence(first.page, first.boxIndex);
       }
       return occs;
     }
@@ -1442,12 +2921,12 @@
       }
 
       const variants = lastFocusVariants || expandFocusVariants(lastFocusWord);
-      const matchedByPage = lastMatchedByPage && Object.keys(lastMatchedByPage).length
-        ? lastMatchedByPage
-        : findWordOccurrences(variants, lastSearchPageFilter).matchedByPage;
+      const found = (lastMatchedByPage && Object.keys(lastMatchedByPage).length)
+        ? { matchedByPage: lastMatchedByPage, approxByPage: lastApproxByPage }
+        : findWordOccurrences(variants, lastSearchPageFilter);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          highlightFromMatches(matchedByPage, selectedOccurrence);
+          highlightFromMatches(found.matchedByPage, selectedOccurrence, found.approxByPage);
           centerOnBox(page, boxIndex);
         });
       });
@@ -1464,7 +2943,7 @@
         if (pageWrap) pageWrap.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
         return;
       }
-      const DPI = 72 / 200;
+      const DPI = 72 / (docWordBoxesDpi || 200);
       const z = pdfZoomLevel;
       const fx = (box.x + box.w / 2) * DPI * pageInfo.scale;
       const fy = (box.y + box.h / 2) * DPI * pageInfo.scale;
@@ -1479,15 +2958,85 @@
       });
     }
 
-    function highlightFromMatches(matchedByPage, selected) {
+    // ── Corrección manual de palabras OCR (manuscrito mal leído) ──
+    function hitTestWord(pageNum, e, canvas) {
+      const pageIdx = pageNum - 1;
+      const boxes = docWordBoxes[String(pageIdx)] || [];
+      const pageInfo = pdfPageScales[pageNum];
+      if (!boxes.length || !pageInfo) return -1;
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return -1;
+      const bufX = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const bufY = (e.clientY - rect.top) * (canvas.height / rect.height);
+      const DPI = 72 / (docWordBoxesDpi || 200);
+      const bx = bufX / (DPI * pageInfo.scale);
+      const by = bufY / (DPI * pageInfo.scale);
+      for (let i = 0; i < boxes.length; i++) {
+        const b = boxes[i];
+        if (bx >= b.x - 2 && bx <= b.x + b.w + 2 && by >= b.y - 2 && by <= b.y + b.h + 2) return i;
+      }
+      return -1;
+    }
+
+    function openWordEdit(pageNum, boxIndex, clientX, clientY) {
+      const boxes = docWordBoxes[String(pageNum - 1)] || [];
+      const b = boxes[boxIndex];
+      if (!b) return;
+      const pop = document.getElementById('word-edit-popup');
+      const input = document.getElementById('word-edit-input');
+      if (!pop || !input) return;
+      input.value = b.text || '';
+      pop.dataset.page = pageNum;
+      pop.dataset.box = boxIndex;
+      pop.style.display = 'block';
+      pop.style.left = Math.max(8, Math.min(clientX, window.innerWidth - 316)) + 'px';
+      pop.style.top = Math.max(8, Math.min(clientY + 8, window.innerHeight - 96)) + 'px';
+      input.focus();
+      input.select();
+    }
+
+    function closeWordEdit() {
+      const pop = document.getElementById('word-edit-popup');
+      if (pop) pop.style.display = 'none';
+    }
+
+    async function saveWordEdit() {
+      const pop = document.getElementById('word-edit-popup');
+      const input = document.getElementById('word-edit-input');
+      if (!pop || !input) return;
+      const pageNum = parseInt(pop.dataset.page, 10);
+      const boxIndex = parseInt(pop.dataset.box, 10);
+      const text = input.value.trim();
+      if (!text) { closeWordEdit(); return; }
+      try {
+        const res = await fetch(API + '/api/v1/documents/' + selectedDocId + '/word', {
+          method: 'PATCH',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+          body: JSON.stringify({ page: pageNum - 1, box_index: boxIndex, text: text }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const boxes = docWordBoxes[String(pageNum - 1)] || [];
+        if (boxes[boxIndex]) boxes[boxIndex].text = data.text || text;
+        buildWordIndex();
+        doSearch({ focusWord: document.getElementById('search-input').value.trim() });
+      } catch (err) {
+        console.error('word correction failed', err);
+        alert('No se pudo guardar la corrección: ' + err.message);
+      }
+      closeWordEdit();
+    }
+
+    function highlightFromMatches(matchedByPage, selected, approxByPage) {
       clearPdfMarks();
       if (!matchedByPage) return;
-      const DPI = 72 / 200;
+      const DPI = 72 / (docWordBoxesDpi || 200);
 
       for (const pk of Object.keys(pageBoxMeta)) {
         const pageIdx = Number(pk);
-        const pageMatched = matchedByPage[pageIdx];
-        if (!pageMatched || !pageMatched.length) continue;
+        const pageMatched = matchedByPage[pageIdx] || [];
+        const pageApprox = (approxByPage && approxByPage[pageIdx]) || [];
+        if (!pageMatched.length && !pageApprox.length) continue;
         const boxes = docWordBoxes[pk] || [];
         const pageNum = pageIdx + 1;
         const hlCanvas = document.getElementById('hl-canvas-' + pageNum);
@@ -1495,21 +3044,24 @@
         if (!hlCanvas || !pageInfo) continue;
         const ctx = hlCanvas.getContext('2d');
         let n = 0;
-        for (let mi = 0; mi < pageMatched.length; mi++) {
-          const i = pageMatched[mi];
-          if (!boxes[i]) continue;
+        const draw = (i, approx) => {
+          if (!boxes[i]) return;
           const x = boxes[i].x * DPI * pageInfo.scale;
           const y = boxes[i].y * DPI * pageInfo.scale;
           const w = boxes[i].w * DPI * pageInfo.scale;
           const h = boxes[i].h * DPI * pageInfo.scale;
-          const isSel = selected && selected.page === pageIdx && selected.boxIndex === i;
-          ctx.fillStyle = 'rgba(255,140,0,0.5)';
+          // Amarillo = exacta; naranja = aproximada (posible error de OCR).
+          ctx.fillStyle = approx ? 'rgba(255,140,0,0.55)' : 'rgba(255,214,10,0.85)';
           ctx.fillRect(x, y, w, h);
-          ctx.strokeStyle = isSel ? 'rgba(255,60,0,1)' : 'rgba(255,80,0,0.9)';
-          ctx.lineWidth = isSel ? 3 : 2;
-          ctx.strokeRect(x, y, w, h);
+          if (selected && selected.page === pageIdx && selected.boxIndex === i) {
+            ctx.strokeStyle = 'rgba(199,91,57,1)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, w, h);
+          }
           n++;
-        }
+        };
+        for (const i of pageMatched) draw(i, false);
+        for (const i of pageApprox) draw(i, true);
         if (n > 0) {
           const wrap = hlCanvas.closest('.pdf-page-wrapper');
           if (wrap) {
@@ -1542,8 +3094,10 @@
       lastFocusVariants = null;
       selectedOccurrence = null;
       lastOccurrences = [];
+      lastApproxOccurrences = [];
       lastSearchPageFilter = null;
       lastMatchedByPage = {};
+      lastApproxByPage = {};
     }
 
     // ── CHAT ──
@@ -1556,8 +3110,71 @@
       } else {
         section.classList.remove('collapsed');
         section.classList.add('expanded');
+        loadConvOptions();
+        loadChatDomains();
+        scrollChatToBottom();
         document.getElementById('chat-input').focus();
       }
+    }
+
+    function scrollChatToBottom() {
+      const box = document.getElementById('chat-messages');
+      if (box) box.scrollTop = box.scrollHeight;
+    }
+
+    function hideChatEmpty() {
+      const e = document.getElementById('chat-empty');
+      if (e) e.style.display = 'none';
+    }
+
+    function chatSourcesHtml(sources) {
+      if (!sources || !sources.length) return '';
+      return '<div class="chat-msg-sources">' + sources.map(s => {
+        const doc = s.document || '';
+        const pages = Array.isArray(s.page) ? s.page : (s.page != null ? [s.page] : []);
+        const pg = pages.length ? (Number(pages[0]) + 1) : 1;
+        const label = (pages.length ? 'Pag. ' + pg : '') + (doc ? (pages.length ? ' · ' : '') + doc : 'fuente');
+        return '<span class="chat-src" data-doc="' + esc(doc) + '" data-page="' + pg + '" onclick="jumpToSource(this)">📄 ' + esc(label) + '</span>';
+      }).join('') + '</div>';
+    }
+
+    function feedbackHtml(msgId, current) {
+      if (!msgId) return '';
+      const on = (v) => (current === v ? ' active' : '');
+      return '<span class="chat-fb">'
+        + '<button class="chat-fb-btn' + on('useful') + '" title="Respuesta util" onclick="sendFeedback(this,\'' + msgId + '\',\'useful\')">\u{1F44D}</button>'
+        + '<button class="chat-fb-btn' + on('not_useful') + '" title="Respuesta no util" onclick="sendFeedback(this,\'' + msgId + '\',\'not_useful\')">\u{1F44E}</button>'
+        + '</span>';
+    }
+
+    async function sendFeedback(btn, msgId, value) {
+      try {
+        const res = await fetch(API + '/api/v1/chat/messages/' + msgId + '/feedback', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+          body: JSON.stringify({ value: value }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const span = btn.closest('.chat-fb');
+        if (span) span.querySelectorAll('.chat-fb-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        showToast(value === 'useful' ? 'Gracias por tu valoracion' : 'Anotado, lo revisaremos', 'success');
+      } catch (e) {
+        showToast('No se pudo registrar el feedback', 'error');
+      }
+    }
+
+    function fillAiMessage(div, text, sources, msgId) {
+      div.dataset.raw = text || '';
+      const c = div.querySelector('.chat-msg-content');
+      if (c) c.innerHTML = esc(text || '');
+      const old = div.querySelector('.chat-msg-sources');
+      if (old) old.remove();
+      if (sources && sources.length) div.insertAdjacentHTML('beforeend', chatSourcesHtml(sources));
+      const acts = div.querySelector('.chat-msg-actions');
+      if (acts) acts.remove();
+      div.insertAdjacentHTML('beforeend', '<div class="chat-msg-actions"><button class="chat-copy" onclick="copyChatMsg(this)">Copiar</button>' + feedbackHtml(msgId) + '</div>');
+      scrollChatToBottom();
     }
 
     async function sendQuery() {
@@ -1565,73 +3182,144 @@
       const q = input.value.trim();
       if (!q) return;
       input.value = '';
+      input.style.height = 'auto';
 
       const section = document.getElementById('chat-section');
       if (section.classList.contains('collapsed')) {
         section.classList.remove('collapsed');
         section.classList.add('expanded');
       }
+      hideChatEmpty();
 
       const now = new Date();
       const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
       addChatMsg('user', q, time);
 
-      const loadingDiv = addChatMsg('ai', '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>', time);
+      const loadingDiv = addChatMsg('ai', '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>', time, null, true);
 
-      // Modo conversación (PLAN-007 F5): usa el endpoint de chat con memoria.
-      if (window.currentConvId) {
-        try {
-          const res = await fetch(API + '/api/v1/chat/conversations/' + window.currentConvId + '/messages', {
+      // Conversación (RAG-028/029): se crea con la PRIMERA pregunta y se titula con ella.
+      try {
+        let convId = window.currentConvId;
+        if (!convId) {
+          const cr = await fetch(API + '/api/v1/chat/conversations', {
             method: 'POST',
             headers: {...authHeaders(), 'Content-Type': 'application/json'},
-            body: JSON.stringify({content: q})
+            body: JSON.stringify({title: q.slice(0, 120)})
           });
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const d = await res.json();
-          let srcHtml = (d.sources || []).map(s =>
-            '<div class="chat-msg-sources">📄 ' + esc(s.document || '') + ' - Pag. ' + (s.page || []).join(',') + '</div>').join('');
-          loadingDiv.querySelector('.chat-msg-content').innerHTML = esc(d.content || '') + srcHtml;
-        } catch(e2) {
-          loadingDiv.querySelector('.chat-msg-content').innerHTML = '<span style="color:var(--danger)">Error: ' + esc(e2.message) + '</span>';
+          if (!cr.ok) throw new Error('HTTP ' + cr.status);
+          const cd = await cr.json();
+          convId = cd.id;
+          window.currentConvId = convId;
         }
-        return;
-      }
-
-      const body = {query: q, max_chunks: 10};
-      if (selectedDocId) body.doc_filter = selectedDocId;
-
-      try {
-        const res = await fetch(API + '/api/v1/query', {
+        const res = await fetch(API + '/api/v1/chat/conversations/' + convId + '/messages', {
           method: 'POST',
           headers: {...authHeaders(), 'Content-Type': 'application/json'},
-          body: JSON.stringify(body)
+          body: JSON.stringify({content: q, doc_id: selectedDocId || null, domain: (document.getElementById('chat-domain') || {}).value || null})
         });
-        const data = await res.json();
-        let sourcesHtml = '';
-        if (data.sources && data.sources.length > 0) {
-          sourcesHtml = data.sources.map(src =>
-            '<div class="chat-msg-sources"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/></svg>' + esc(src.document_name || '') + ' - Pag. ' + (src.page_numbers || []).join(',') + '</div>'
-          ).join('');
-        }
-        loadingDiv.querySelector('.chat-msg-content').innerHTML = esc(data.answer || data.detail || 'Sin respuesta') + sourcesHtml;
-      } catch(e) {
-        loadingDiv.querySelector('.chat-msg-content').innerHTML = '<span style="color:var(--danger)">Error: ' + esc(e.message) + '</span>';
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const d = await res.json();
+        fillAiMessage(loadingDiv, d.content || '', d.sources || [], d.id);
+        loadConvOptions();
+      } catch(e2) {
+        fillAiMessage(loadingDiv, 'Error: ' + e2.message, []);
       }
     }
 
-    function addChatMsg(role, content, time) {
+    function addChatMsg(role, text, time, sources, isHtml, msgId, feedback) {
       const div = document.createElement('div');
       div.className = 'chat-msg ' + (role === 'user' ? 'user-msg' : 'ai-msg');
+      div.dataset.raw = text || '';
       const label = role === 'user' ? 'Usuario' : 'Consulta Medica IA';
       const avatar = role === 'user' ? 'U' : 'IA';
-      div.innerHTML =
+      let html =
         '<div class="chat-msg-header"><div style="display:flex;align-items:center"><span class="chat-msg-avatar">' + avatar + '</span><span class="chat-msg-role">' + label + '</span></div><span class="chat-msg-time">' + time + '</span></div>' +
-        '<div class="chat-msg-content">' + (role === 'user' ? esc(content) : content) + '</div>';
+        '<div class="chat-msg-content">' + (isHtml ? text : esc(text || '')) + '</div>';
+      if (!isHtml && role !== 'user') {
+        html += chatSourcesHtml(sources);
+        html += '<div class="chat-msg-actions"><button class="chat-copy" onclick="copyChatMsg(this)">Copiar</button>' + feedbackHtml(msgId, feedback) + '</div>';
+      }
+      div.innerHTML = html;
       const container = document.getElementById('chat-messages');
       container.appendChild(div);
-      while (container.children.length > 50) container.removeChild(container.firstChild);
-      div.scrollIntoView({behavior: 'smooth'});
+      while (container.children.length > 60) container.removeChild(container.firstChild);
+      scrollChatToBottom();
       return div;
+    }
+
+    function copyChatMsg(btn) {
+      const msg = btn.closest('.chat-msg');
+      const text = (msg && msg.dataset.raw) || '';
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => showToast('Respuesta copiada', 'success')).catch(() => showToast('No se pudo copiar', 'error'));
+    }
+
+    function jumpToSource(el) {
+      const docName = el.getAttribute('data-doc') || '';
+      const pg = parseInt(el.getAttribute('data-page')) || 1;
+      const doc = docs.find(d => d.original_name === docName);
+      if (!doc) { showToast('No encuentro ese documento', 'info'); return; }
+      if (doc.id !== selectedDocId) {
+        selectDoc(doc.id);
+        setTimeout(() => pdfGoToPage(pg), 900);
+      } else {
+        pdfGoToPage(pg);
+      }
+    }
+
+    async function loadConvOptions() {
+      const sel = document.getElementById('chat-conv-select');
+      if (!sel) return;
+      try {
+        const convs = await listConversations();
+        sel.innerHTML = '<option value="">Recientes...</option>' + (convs || []).map(c =>
+          '<option value="' + c.id + '"' + (c.id === window.currentConvId ? ' selected' : '') + '>' + esc((c.title || 'Conversacion').slice(0, 42)) + '</option>').join('');
+      } catch(e) {}
+    }
+
+    async function loadChatDomains() {
+      const sel = document.getElementById('chat-domain');
+      if (!sel) return;
+      const current = sel.value;
+      try {
+        const res = await fetch(API + '/api/v1/keywords/domains', {headers: authHeaders()});
+        const domains = res.ok ? await res.json() : [];
+        sel.innerHTML = '<option value="">Dominio: Todos</option>' +
+          (Array.isArray(domains) ? domains : []).map(d => '<option value="' + esc(d) + '">' + esc(d) + '</option>').join('');
+        if (current) sel.value = current;
+      } catch(e) {}
+    }
+
+    function onConvSelect(sel) {
+      const id = sel.value;
+      if (id) openConversation(id);
+    }
+
+    function startNewConversation() {
+      window.currentConvId = null;
+      const box = document.getElementById('chat-messages');
+      if (box) {
+        box.innerHTML = '<div class="chat-empty" id="chat-empty"><div class="chat-empty-title">Hola, soy tu asistente</div><div class="chat-empty-sub">Pregúntame sobre el documento abierto o conversa conmigo.</div><div class="chat-quick" id="chat-quick"></div></div>';
+      }
+      renderChatQuick();
+      const sel = document.getElementById('chat-conv-select');
+      if (sel) sel.value = '';
+      const input = document.getElementById('chat-input');
+      if (input) input.focus();
+      showToast('Nueva conversacion', 'info');
+    }
+
+    function renderChatQuick() {
+      const el = document.getElementById('chat-quick');
+      if (!el) return;
+      const qs = ['Hola, ¿qué puedes hacer?', '¿Cuál es el diagnóstico?', '¿Qué tratamiento se indicó?', 'Resume el documento'];
+      el.innerHTML = qs.map(q => '<button type="button" class="chat-quick-chip" onclick="fillChat(this.textContent)">' + esc(q) + '</button>').join('');
+    }
+
+    function fillChat(text) {
+      const input = document.getElementById('chat-input');
+      if (!input) return;
+      input.value = text;
+      sendQuery();
     }
 
     // ── UPLOAD ──
@@ -1844,27 +3532,35 @@
       }
     }
 
-    function downloadHistory() {
-      const fmt = (sessionStorage.getItem('hist_fmt') || 'csv');
+    function downloadHistory(format) {
+      const sel = document.getElementById('dl-hist-fmt');
+      const fmt = format || (sel ? sel.value : 'csv') || 'csv';
       enqueueDownload(API + '/api/v1/query/export/history?format=' + fmt, 'historial.' + fmt);
     }
 
-    function downloadAudit() {
-      const fmt = (sessionStorage.getItem('audit_fmt') || 'csv');
+    function downloadAudit(format) {
+      const sel = document.getElementById('dl-audit-fmt');
+      const fmt = format || (sel ? sel.value : 'csv') || 'csv';
       enqueueDownload(API + '/api/v1/audit/export?format=' + fmt, 'bitacora.' + fmt);
     }
 
     function downloadAll() {
-      enqueueDownload(API + '/api/v1/query/export/history?format=csv', 'historial.csv');
-      enqueueDownload(API + '/api/v1/audit/export?format=csv', 'bitacora.csv');
-      enqueueDownload(API + '/api/v1/audit/export?format=xlsx', 'bitacora.xlsx');
-      showToast('Descargando 3 archivos (2 en paralelo)...', 'success');
+      const hsel = document.getElementById('dl-hist-fmt');
+      const asel = document.getElementById('dl-audit-fmt');
+      const jobs = [];
+      if (canExport()) jobs.push([API + '/api/v1/query/export/history?format=' + (hsel ? hsel.value : 'csv'), 'historial.' + (hsel ? hsel.value : 'csv')]);
+      if (canAudit()) jobs.push([API + '/api/v1/audit/export?format=' + (asel ? asel.value : 'csv'), 'bitacora.' + (asel ? asel.value : 'csv')]);
+      if (!jobs.length) { showToast('Tu rol no tiene descargas disponibles', 'error'); return; }
+      jobs.forEach(j => enqueueDownload(j[0], j[1]));
+      showToast('Descargando ' + jobs.length + ' archivo(s)...', 'success');
     }
 
     function setView(el, view) {
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       el.classList.add('active');
       if (view === 'dashboard') showDashboard();
+      if (view === 'users') showUsers();
+      if (view === 'settings') showConfig();
       if (view === 'bsc') { el.classList.remove('active'); window.open('/bsc.html', '_blank'); }
     }
 
@@ -1935,6 +3631,32 @@
     function esc(t) { if (!t) return ''; return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
     // ── INIT ──
+    // El login arranca vacío (sin precarga ni autofill del navegador).
+    (function clearLogin() {
+      const lu = document.getElementById('login-user');
+      const lp = document.getElementById('login-pass');
+      if (lu) { lu.value = ''; lu.setAttribute('autocomplete', 'off'); }
+      if (lp) { lp.value = ''; lp.setAttribute('autocomplete', 'off'); }
+    })();
+    renderChatQuick();
+    (function chatWiring() {
+      const cm = document.getElementById('chat-messages');
+      if (cm) {
+        cm.addEventListener('scroll', () => {
+          const jump = document.getElementById('chat-jump');
+          if (!jump) return;
+          const nearBottom = (cm.scrollHeight - cm.scrollTop - cm.clientHeight) < 40;
+          jump.style.display = nearBottom ? 'none' : 'flex';
+        });
+      }
+      const ci = document.getElementById('chat-input');
+      if (ci) {
+        ci.addEventListener('input', () => {
+          ci.style.height = 'auto';
+          ci.style.height = Math.min(ci.scrollHeight, 64) + 'px';
+        });
+      }
+    })();
     const pdfViewerEl = document.getElementById('pdf-viewer');
     if (pdfViewerEl) {
       pdfViewerEl.addEventListener('wheel', function(e) {

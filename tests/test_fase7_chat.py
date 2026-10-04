@@ -143,10 +143,19 @@ def test_memoria_ultimos_n(client, monkeypatch):
     import src.api.v1.chat as ch
     prompts_seen = []
 
+    class _R:
+        score = 0.9; rerank_score = 0.9; chunk_id = None; document_id = None
+        content = "contenido de prueba"
+        page_numbers = [0]; chunk_index = 0; chunk_metadata = {}
+        document_name = "x.pdf"; matched_terms = []; vector_score = 0.9
+        keyword_score = 0.5; rrf_score = 0.7; chunk = None; relevance = 90
+
     async def fs(*a, **k):
-        return []
+        return [_R()]
 
     monkeypatch.setattr(ch, "hybrid_search", fs, raising=False)
+    # rerank mockeado: sin cross-encoder real; conserva el score de evidencia.
+    monkeypatch.setattr(ch, "rerank", lambda q, res, top_k=10: res, raising=False)
     monkeypatch.setattr(ch, "generate_answer_timed",
                         lambda ctx, q, **k: prompts_seen.append(ctx) or
                         {"text": "ok [1]", "prompt_eval_ms": 1, "generation_ms": 1,

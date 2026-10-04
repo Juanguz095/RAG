@@ -30,7 +30,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "keywords:write", "keywords:read",
         "query", "search", "export",
         "alerts:resolve", "action_plans:write", "kpis:write",
-        "bsc:read", "chat:read", "chat:write", "chat:read", "chat:write",
+        "chat:read", "chat:write",
     },
     # assistant (Usuario autorizado): consulta + exporta; el contrato C1
     # (CP-002) exige que también pueda subir documentos al pipeline.
@@ -38,18 +38,17 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "documents:read", "documents:upload",
         "keywords:read",
         "query", "search", "export",
-        "bsc:read", "chat:read", "chat:write",
+        "chat:read", "chat:write",
     },
     # viewer (Usuario de consulta): solo lectura
     "viewer": {
         "documents:read",
         "keywords:read",
         "query", "search", "chat:read", "chat:write",
-        "bsc:read",
     },
-    # auditor: lectura de auditoría y tablero
+    # auditor: lectura de auditoría (el BSC es solo del admin)
     "auditor": {
-        "audit:read", "bsc:read",
+        "audit:read",
         "documents:read", "keywords:read", "query", "search",
         "chat:read", "chat:write",
     },

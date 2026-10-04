@@ -39,6 +39,13 @@ async def login(
         await db.commit()
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    # Usuario desactivado por un admin: no se emite token (C3/M1).
+    if not user.is_active:
+        await audit(db, None, "login_failed", resource_type="auth",
+                    resource_id=req.username, ip=_client_ip(request))
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Usuario inactivo")
+
     token = create_token(str(user.id), user.role, user.username)
 
     # M6: re-hash transparente del SHA-256 heredado tras login exitoso
