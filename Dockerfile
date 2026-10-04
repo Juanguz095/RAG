@@ -2,6 +2,7 @@ FROM python:3.11-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake libopenblas-dev libomp-dev git curl \
+    libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -26,6 +27,18 @@ RUN pip install --no-cache-dir \
        "sentence-transformers==3.1.1" \
        llama-cpp-python \
     && pip cache purge
+
+# Engine síncrono del worker (src/workers/ingestion_tasks.py usa el dialecto
+# postgresql+psycopg2). Capa aparte para no invalidar la cache de torch/ML.
+RUN pip install --no-cache-dir "psycopg2-binary>=2.9"
+
+# OCR ML para manuscritos (PLAN-009 Fase B): RapidOCR (ONNX Runtime) con los
+# modelos PP-OCRv5 pre-descargados → 100% offline y ligero (sin paddlepaddle).
+# Solo lo usa el worker de ingesta (import perezoso); la API no lo carga.
+RUN pip install --no-cache-dir "rapidocr>=3.7,<4.0" "onnxruntime>=1.18"
+COPY src/services/rapidocr_params.py ./src/services/rapidocr_params.py
+COPY scripts/ocr_models_download.py ./scripts/
+RUN python scripts/ocr_models_download.py && pip cache purge
 FROM python:3.11-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
