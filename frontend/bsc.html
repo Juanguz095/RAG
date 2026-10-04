@@ -64,6 +64,10 @@
   .kpi .val  { font-weight: 600; text-align: right; min-width: 70px; }
   .kpi .meta { color: var(--muted); font-size: 11px; }
   .kpi .emo  { font-size: 16px; }
+.kpi .trend { font-size:10px; margin-left:4px; }
+.kpi .trend.up { color:#2e7d32; }
+.kpi .trend.down { color:#c62828; }
+.kpi .trend.flat { color:#999; }
 
   .section {
     background: var(--panel); border: 1px solid var(--border);
@@ -129,6 +133,12 @@
   <div id="login-err" style="color:var(--red);font-size:12px;margin-top:8px"></div>
 </div>
 
+<div id="no-access" style="display:none;max-width:520px;margin:80px auto;background:#fff;border:1px solid #e8e2db;border-radius:16px;padding:36px;text-align:center">
+  <h2 style="margin:0 0 8px">Acceso restringido</h2>
+  <p style="color:#6b6560;font-size:14px;margin:0">El panel de calidad (BSC) es solo para el administrador.</p>
+  <button class="primary" style="margin-top:20px" onclick="logout()">Salir</button>
+</div>
+
 <main id="dash" style="display:none">
   <div class="row4" id="perspectives"></div>
 
@@ -155,7 +165,11 @@
   </div>
 
   <div class="section">
-    <h2>Heatmap documento × palabra clave (frecuencia)</h2>
+    <h2>Heatmap documento × palabra clave (frecuencia)
+      <select id="gaps-domain" onchange="loadGaps().then(render)" style="font:inherit;font-size:12px;margin-left:10px;padding:4px 8px;border:1px solid #e8e2db;border-radius:6px">
+        <option value="">Todos los dominios</option>
+      </select>
+    </h2>
     <div class="heatmap"><table id="heatmap-table"></table></div>
     <div style="color:var(--muted);font-size:11px;margin-top:8px">
       🟩 ≥5 · 🟨 2-4 · 🟥 1 · ⬛ 0 — celda = apariciones del keyword en el documento.
@@ -190,6 +204,7 @@
 <script>
 const API = '';
 let T = localStorage.getItem('token');
+let ROLE = localStorage.getItem('role') || '';
 
 function hdrs() {
   return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + T };
@@ -197,6 +212,7 @@ function hdrs() {
 async function jf(url, opts = {}) {
   const r = await fetch(url, { headers: hdrs(), ...opts });
   if (r.status === 401) { showLogin(); throw new Error('401'); }
+  if (r.status === 403) { showNoAccess(); throw new Error('403'); }
   if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 120));
   return r.json();
 }
@@ -223,15 +239,19 @@ async function login() {
   });
   if (r.status === 200) {
     const d = await r.json();
-    T = d.access_token; localStorage.setItem('token', T);
+    T = d.access_token; ROLE = d.role || ROLE;
+    localStorage.setItem('token', T);
+    if (ROLE) localStorage.setItem('role', ROLE);
+    if (ROLE && ROLE !== 'admin') { showNoAccess(); return; }
     showDash();
   } else {
     document.getElementById('login-err').textContent = 'Credenciales inválidas o acceso denegado (' + r.status + ')';
   }
 }
-function logout() { localStorage.removeItem('token'); location.reload(); }
-function showLogin() { document.getElementById('login-card').style.display = ''; document.getElementById('dash').style.display = 'none'; }
-function showDash() { document.getElementById('login-card').style.display = 'none'; document.getElementById('dash').style.display = ''; loadAll(); }
+function logout() { localStorage.removeItem('token'); localStorage.removeItem('role'); location.reload(); }
+function showLogin() { document.getElementById('login-card').style.display = ''; document.getElementById('dash').style.display = 'none'; document.getElementById('no-access').style.display = 'none'; }
+function showDash() { document.getElementById('login-card').style.display = 'none'; document.getElementById('no-access').style.display = 'none'; document.getElementById('dash').style.display = ''; loadAll(); }
+function showNoAccess() { document.getElementById('login-card').style.display = 'none'; document.getElementById('dash').style.display = 'none'; document.getElementById('no-access').style.display = 'block'; }
 
 const PERSP = [
   { key: 'conocimiento', title: 'P1 · Conocimiento Documental' },
@@ -244,14 +264,26 @@ let KPIS = [];
 
 async function loadAll() {
   try { /* links ahora blob-download con auth */ } catch {}
-  await Promise.all([loadKpis(), loadGaps(), loadQueries(), loadScore(), loadPlans(), loadUsage()]);
+  await Promise.all([loadKpis(), loadDomains(), loadGaps(), loadQueries(), loadScore(), loadPlans(), loadUsage()]);
   render();
 }
 async function loadKpis() {
   try { KPIS = (await jf(API + '/api/v1/bsc/kpis')).items; } catch { KPIS = []; }
 }
+async function loadDomains() {
+  try {
+    const doms = await jf(API + '/api/v1/keywords/domains');
+    const sel = document.getElementById('gaps-domain');
+    if (sel && Array.isArray(doms)) {
+      sel.innerHTML = '<option value="">Todos los dominios</option>' +
+        doms.map(d => '<option value="' + d + '">' + d + '</option>').join('');
+    }
+  } catch { /* sin dominios */ }
+}
 async function loadGaps() {
-  try { window.GAPS = await jf(API + '/api/v1/bsc/gaps'); } catch { window.GAPS = {}; }
+  const sel = document.getElementById('gaps-domain');
+  const dom = sel && sel.value ? sel.value : '';
+  try { window.GAPS = await jf(API + '/api/v1/bsc/gaps' + (dom ? '?domain=' + encodeURIComponent(dom) : '')); } catch { window.GAPS = {}; }
 }
 async function loadQueries() {
   try {
@@ -296,6 +328,13 @@ async function advancePlan(id, status) {
   loadPlans();
 }
 
+function trendArrow(t) {
+  if (!t) return '';
+  const a = t.arrow === 'up' ? '\u25B2' : (t.arrow === 'down' ? '\u25BC' : '\u2013');
+  const cls = t.improved === true ? 'up' : (t.improved === false ? 'down' : 'flat');
+  return '<span class="trend ' + cls + '" title="variacion ' + t.delta + ' vs. calculo anterior">' + a + '</span>';
+}
+
 function render() {
   // perspectives
   const el = document.getElementById('perspectives');
@@ -310,7 +349,7 @@ function render() {
       row.className = 'kpi ' + (k.state || 'gray');
       row.innerHTML =
         '<div><div>' + k.name + '</div><div class="meta">' + (k.computed_at ? 'calc. ' + k.computed_at.slice(0, 16) : 'sin calcular') + '</div></div>' +
-        '<div class="val">' + (k.last_value != null ? k.last_value : '·') + (k.unit === '%' ? '%' : '') + '</div>' +
+        '<div class="val">' + (k.last_value != null ? k.last_value : '·') + (k.unit === '%' ? '%' : '') + trendArrow(k.trend) + '</div>' +
         '<div class="meta">' + (k.target != null ? 'meta ' + k.target + k.unit : '') + '</div>' +
         '<div class="emo">' + (k.emoji || '⚪') + '</div>';
       div.appendChild(row);
@@ -373,8 +412,11 @@ function render() {
   });
 }
 
-if (localStorage.getItem('token')) { T = localStorage.getItem('token'); showDash(); }
-else showLogin();
+if (localStorage.getItem('token')) {
+  T = localStorage.getItem('token');
+  if (ROLE && ROLE !== 'admin') showNoAccess();
+  else showDash();
+} else showLogin();
 </script>
 </body>
 </html>

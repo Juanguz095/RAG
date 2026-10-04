@@ -77,7 +77,7 @@ class Chunk(Base):
     bbox = Column(JSONB)
     token_count = Column(Integer)
     chunk_metadata = Column(JSONB, default=dict)
-    embedding = Column(Vector(1024))
+    embedding = Column(Vector(384))
     created_at = Column(DateTime, default=datetime.utcnow)
 
     document = relationship("Document", back_populates="chunks")
@@ -110,6 +110,7 @@ class Keyword(Base):
     term = Column(String(200), nullable=False, unique=True, index=True)
     category = Column(String(100))
     description = Column(String(500))
+    priority = Column(Integer, default=1, nullable=False)  # 1=baja 2=media 3=alta
     is_active = Column(Boolean, default=True, nullable=False)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -122,6 +123,17 @@ class ChunkKeyword(Base):
     chunk_id = Column(UUID(as_uuid=True), ForeignKey("chunks.id"), nullable=False, index=True)
     keyword_id = Column(UUID(as_uuid=True), ForeignKey("keywords.id"), nullable=False, index=True)
     match_count = Column(Integer, default=1, nullable=False)
+
+
+class KeywordCandidate(Base):
+    """Términos frecuentes fuera del catálogo (conceptos emergentes → candidatos)."""
+    __tablename__ = "keyword_candidates"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    term = Column(String(200), nullable=False, unique=True, index=True)
+    count = Column(Integer, default=1, nullable=False)
+    sample_document = Column(String(500))
+    status = Column(String(20), default="proposed", nullable=False)  # proposed|approved|rejected
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class Conversation(Base):
@@ -143,6 +155,9 @@ class Message(Base):
     content = Column(Text, nullable=False)
     sources = Column(JSONB, default=list)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Feedback del usuario sobre la respuesta (spec §49): useful|not_useful|review.
+    feedback = Column(String(20), nullable=True)
+    feedback_at = Column(DateTime, nullable=True)
 
 
 class Proposal(Base):

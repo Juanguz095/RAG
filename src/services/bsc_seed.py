@@ -47,6 +47,13 @@ DEFAULT_KPIS = [
     dict(code="USAGE_DOCS_PER_USER", name="Documentos por usuario", perspective="usuario",
          direction="gte", unit="docs/user", target=None, thresholds={"amber": 1, "red": 0},
          query_type="usage_stats"),
+    # P3 Usuario y servicio — feedback de respuestas (spec §48/§49)
+    dict(code="FEEDBACK_USEFUL", name="Respuestas utiles", perspective="usuario",
+         direction="gte", unit="%", target=85.0, thresholds={"amber": 85.0, "red": 70.0},
+         query_type="feedback"),
+    dict(code="FEEDBACK_UNUSEFUL", name="Respuestas no utiles", perspective="usuario",
+         direction="lte", unit="%", target=10.0, thresholds={"amber": 10.0, "red": 30.0},
+         query_type="feedback"),
     # P4 Seguridad y gobierno
     dict(code="AUDIT_OPERATIONS", name="Operaciones auditadas", perspective="seguridad",
          direction="gte", unit="ops", target=None, thresholds={"amber": 1, "red": 0},

@@ -327,34 +327,60 @@ async def compute_and_snapshot(db, k) -> dict:
 
     from src.api.v1 import bsc as bsc_api  # _collect_inputs vive ahí
 
-    data = await bsc_api._collect_inputs(db)
     value: float
     formula = ""
     if k.query_type == "keyword_coverage":
-        value, formula = compute_keyword_coverage(data["synonyms"], data["chunks"])
-    elif k.query_type == "query_stats":
-        stats = compute_query_stats(data["audit_rows"])
-        if k.code == "QUERY_WITH_EVIDENCE":
-            value = stats["pct_with_evidence"]
-        elif k.code == "QUERY_NO_EVIDENCE":
-            value = stats["without_evidence"]
+        # Cobertura sobre el CATÁLOGO DE KEYWORDS (SQL agregado, sin cargar chunks).
+        from src.services import bsc_knowledge as _bkw
+        cov = await _bkw.keyword_coverage(db)
+        value = cov["pct"]
+        formula = f"cobertura = {cov['found']}/{cov['total']} * 100 = {cov['pct']}%"
+    elif k.query_type == "keyword_gaps":
+        from src.services import bsc_knowledge as _bkw
+        kg = await _bkw.keyword_gaps(db)
+        value = float(kg["count"])
+        formula = "keywords activas sin evidencia (brechas) = " + str(kg["count"])
+    elif k.query_type == "feedback":
+        # Feedback útil/no útil sobre respuestas (spec §48/§49).
+        from src.database import Message
+
+        rows = (
+            await db.execute(select(Message.feedback).where(Message.feedback.isnot(None)))
+        ).all()
+        vals = [r[0] for r in rows]
+        total = len(vals)
+        useful = sum(1 for v in vals if v == "useful")
+        pct = round(useful / total * 100, 2) if total else 0.0
+        if k.code == "FEEDBACK_USEFUL":
+            value = pct
         else:
-            value = stats["total"]
-        formula = "con/sin evidencia desde audit_log"
-    elif k.query_type == "usage_stats":
-        # WP11: métricas de uso por usuario desde audit_log
-        stats = compute_usage_stats(data["audit_rows"])
-        if k.code == "USAGE_ACTIVE_USERS":
-            value = float(stats["active_users"])
-        elif k.code == "USAGE_QUERIES_PER_USER":
-            value = float(stats["queries_per_user_avg"])
-        elif k.code == "USAGE_DOCS_PER_USER":
-            value = float(stats["docs_per_user_avg"])
-        else:
-            value = float(stats["total_queries"])
-        formula = "uso por usuario/cliente desde audit_log"
+            value = round(100.0 - pct, 2) if total else 0.0
+        formula = f"{useful}/{total} respuestas marcadas utiles"
     else:
-        raise ValueError(f"query_type no soportado: {k.query_type}")
+        # query_stats / usage_stats: necesitan audit_log (no cargamos chunks).
+        data = await bsc_api._collect_inputs(db)
+        if k.query_type == "query_stats":
+            stats = compute_query_stats(data["audit_rows"])
+            if k.code == "QUERY_WITH_EVIDENCE":
+                value = stats["pct_with_evidence"]
+            elif k.code == "QUERY_NO_EVIDENCE":
+                value = stats["without_evidence"]
+            else:
+                value = stats["total"]
+            formula = "con/sin evidencia desde audit_log"
+        elif k.query_type == "usage_stats":
+            stats = compute_usage_stats(data["audit_rows"])
+            if k.code == "USAGE_ACTIVE_USERS":
+                value = float(stats["active_users"])
+            elif k.code == "USAGE_QUERIES_PER_USER":
+                value = float(stats["queries_per_user_avg"])
+            elif k.code == "USAGE_DOCS_PER_USER":
+                value = float(stats["docs_per_user_avg"])
+            else:
+                value = float(stats["total_queries"])
+            formula = "uso por usuario/cliente desde audit_log"
+        else:
+            raise ValueError(f"query_type no soportado: {k.query_type}")
 
     period = _period()
     snap = KpiSnapshot(

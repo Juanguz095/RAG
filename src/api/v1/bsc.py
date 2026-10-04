@@ -1,6 +1,6 @@
 """Router BSC: dashboard RAG Intelligence BSC (PLAN-005, RAG-042..052).
 
-Lecturas con `bsc:read` (los 5 roles); mutaciones con `kpis:write` (admin).
+Todo el módulo BSC es SOLO para el rol admin: lecturas, reportes y mutaciones.
 """
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.permissions import require_permission
 from src.database import ActionPlan, Alert, Kpi, KpiSnapshot, User, get_db
 from src.services import bsc as bsc_svc
+from src.services import bsc_knowledge as bsc_kw
 from src.services.audit import audit
 
 logger = logging.getLogger(__name__)
@@ -49,12 +50,26 @@ async def list_kpis(
     kpis = result.scalars().all()
     out = []
     for k in kpis:
-        snap = (
+        # Últimos 2 snapshots → tendencia (spec §55: "Tendencia" por perspectiva).
+        snaps = (
             await db.execute(
-                select(KpiSnapshot).where(KpiSnapshot.kpi_id == k.id).order_by(desc(KpiSnapshot.computed_at)).limit(1)
+                select(KpiSnapshot).where(KpiSnapshot.kpi_id == k.id)
+                .order_by(desc(KpiSnapshot.computed_at)).limit(2)
             )
-        ).scalar_one_or_none()
+        ).scalars().all()
+        snap = snaps[0] if snaps else None
         value = snap.value if snap is not None else None
+        prev = snaps[1].value if len(snaps) > 1 else None
+        trend = None
+        if value is not None and prev is not None:
+            delta = round(float(value) - float(prev), 2)
+            direction = (k.direction or "gte").lower()
+            improved = (delta > 0) if direction == "gte" else (delta < 0)
+            trend = {
+                "delta": delta,
+                "arrow": "up" if delta > 0 else ("down" if delta < 0 else "flat"),
+                "improved": None if delta == 0 else improved,
+            }
         out.append({
             "code": k.code, "name": k.name, "perspective": k.perspective,
             "direction": k.direction, "unit": k.unit, "target": k.target,
@@ -63,21 +78,41 @@ async def list_kpis(
             "state": bsc_svc.state_for(k, value) if value is not None else "gray",
             "emoji": bsc_svc.state_emoji(bsc_svc.state_for(k, value) if value is not None else "gray"),
             "computed_at": snap.computed_at.isoformat(timespec="seconds") if snap is not None else None,
+            "trend": trend,
         })
     return {"items": out, "count": len(out)}
 
 
 @router.get("/gaps")
 async def gaps(
+    domain: str | None = None,
     db: AsyncSession = Depends(get_db),
     user: User | None = Depends(require_permission("bsc:read")),
 ):
-    data = await _collect_inputs(db)
-    gaps = bsc_svc.compute_gaps(data["synonyms"], data["chunks"])
+    """Brechas + heatmap sobre el CATÁLOGO DE KEYWORDS (SQL agregado)."""
+    kgaps = await bsc_kw.keyword_gaps(db)
+    heatmap = await bsc_kw.keyword_heatmap(db, domain=domain)
     await audit(db, user, "keyword", resource_type="bsc",
-                detail={"gaps": len(gaps["brechas"])})
+                detail={"gaps": len(kgaps["brechas"]), "domain": domain})
     await db.commit()
-    return gaps
+    return {
+        "brechas": kgaps["brechas"],
+        "gaps_by_domain": kgaps["gaps_by_domain"],
+        "heatmap": heatmap,
+        "emergentes": [],
+        "emergentes_detalle": [],
+    }
+
+
+@router.get("/knowledge")
+async def knowledge(
+    domain: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(require_permission("bsc:read")),
+):
+    """Resumen de conocimiento del catálogo de keywords (cobertura, coincidencias,
+    brechas por dominio, heatmap, dominios por documento)."""
+    return await bsc_kw.knowledge_summary(db, domain=domain)
 
 
 @router.get("/support")
@@ -223,7 +258,7 @@ async def _compute_kpi_legacy(db, user=None, code=None):
 async def create_plan(
     body: ActionPlanIn,
     db: AsyncSession = Depends(get_db),
-    user: User | None = Depends(require_permission("kpis:write")),
+    user: User | None = Depends(require_permission("admin:panel")),
 ):
     kpi_id = None
     if body.kpi_code:
@@ -263,7 +298,7 @@ async def update_plan(
     plan_id: str,
     body: ActionPlanUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User | None = Depends(require_permission("kpis:write")),
+    user: User | None = Depends(require_permission("admin:panel")),
 ):
     p = None
     try:
@@ -343,7 +378,7 @@ def _dashboard_payload(data: dict, driver: str = "db") -> dict:
 @router.get("/report.pdf")
 async def report_pdf(
     db: AsyncSession = Depends(get_db),
-    user: User | None = Depends(require_permission("export")),
+    user: User | None = Depends(require_permission("bsc:read")),
 ):
     from fastapi.responses import Response
 
@@ -412,7 +447,7 @@ async def report_pdf(
 @router.get("/report.xlsx")
 async def report_xlsx(
     db: AsyncSession = Depends(get_db),
-    user: User | None = Depends(require_permission("export")),
+    user: User | None = Depends(require_permission("bsc:read")),
 ):
     from fastapi.responses import Response
 
