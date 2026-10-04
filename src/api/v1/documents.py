@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import logging
 import math
@@ -11,6 +12,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
@@ -158,7 +160,7 @@ async def reprocess_document(
 
 
 def _doc_item(d: Document, include_meta: bool = False,
-              timings: dict | None = None) -> DocumentResponse:
+              timings: dict | None = None, domains: list | None = None) -> DocumentResponse:
     meta = None
     raw: Any = {}
     # METADATA no debe disparar carga perezosa: el listado/detalle hacen defer()
@@ -177,6 +179,8 @@ def _doc_item(d: Document, include_meta: bool = False,
     if include_meta:
         # only light keys; avoid shipping word_boxes on list/detail
         meta = {k: v for k, v in raw.items() if k not in ("word_boxes", "extracted_data", "timings")} or None
+    if domains is None:
+        domains = raw.get("domains") or None
     return DocumentResponse(
         id=d.id,
         filename=d.filename,
@@ -189,6 +193,7 @@ def _doc_item(d: Document, include_meta: bool = False,
         processed_at=d.processed_at,
         metadata_=meta,
         timings=timings,
+        domains=domains,
     )
 
 
@@ -202,7 +207,9 @@ async def list_documents(
     current_user: User | None = Depends(get_current_user),
 ):
     query = select(
-        Document, Document.metadata_["timings"].label("timings")
+        Document,
+        Document.metadata_["timings"].label("timings"),
+        Document.metadata_["domains"].label("domains"),
     ).options(defer(Document.metadata_))
     count_query = select(func.count(Document.id))
 
@@ -222,7 +229,7 @@ async def list_documents(
     rows = result.all()
 
     return DocumentListResponse(
-        documents=[_doc_item(d, timings=t) for (d, t) in rows],
+        documents=[_doc_item(d, timings=t, domains=dom) for (d, t, dom) in rows],
         total=total,
         page=page,
         pages=pages,
@@ -236,14 +243,125 @@ async def get_document(
     current_user: User | None = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(Document, Document.metadata_["timings"].label("timings"))
+        select(Document,
+               Document.metadata_["timings"].label("timings"),
+               Document.metadata_["domains"].label("domains"))
         .where(Document.id == doc_id).options(defer(Document.metadata_))
     )
     row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="Document not found")
-    doc, t = row
-    return _doc_item(doc, timings=t)
+    doc, t, dom = row
+    return _doc_item(doc, timings=t, domains=dom)
+
+
+class PatientFieldsIn(BaseModel):
+    nombre: str | None = None
+    edad: str | None = None
+    sexo: str | None = None
+    dni: str | None = None
+    historia_clinica: str | None = None
+    fecha_atencion: str | None = None
+
+
+@router.patch("/{doc_id}/patient", response_model=dict)
+async def update_patient_fields(
+    doc_id: UUID,
+    body: PatientFieldsIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(require_permission("documents:update")),
+):
+    """Corrección manual de los datos del paciente (se guardan en el documento)."""
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    meta = dict(doc.metadata_ or {})
+    data = dict(meta.get("extracted_data") or {})
+    for k in ("nombre", "edad", "sexo", "dni", "historia_clinica", "fecha_atencion"):
+        v = getattr(body, k)
+        if v is not None:
+            data[k] = v
+    from src.services.patient_fields import sanitize_patient_fields
+
+    data = sanitize_patient_fields(data)
+    data["manual"] = True
+    meta["extracted_data"] = data
+    doc.metadata_ = meta  # rebinding marks JSONB dirty
+    await db.commit()
+    await audit(db, current_user, "update", resource_type="document",
+                resource_id=str(doc.id), detail={"op": "patient_fields"})
+    await db.commit()
+    return data
+
+
+class WordCorrectionIn(BaseModel):
+    page: int
+    box_index: int
+    text: str
+
+
+@router.patch("/{doc_id}/word", response_model=dict)
+async def correct_word(
+    doc_id: UUID,
+    body: WordCorrectionIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(require_permission("documents:update")),
+):
+    """Corrige manualmente una palabra OCR (manuscrito mal leído).
+
+    Actualiza el word_box (lo usa el buscador inteligente) y, si el texto viejo
+    aparece literal en algún chunk de esa página, lo reemplaza y recalcula su
+    embedding (para que el chat/consulta también lo encuentre).
+    """
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    meta = dict(doc.metadata_ or {})
+    wb = copy.deepcopy(meta.get("word_boxes") or {})
+    page_boxes = wb.get(str(body.page))
+    if not isinstance(page_boxes, list) or not (0 <= body.box_index < len(page_boxes)):
+        raise HTTPException(status_code=404, detail="Word box not found")
+
+    new_text = (body.text or "").strip()
+    if not new_text:
+        raise HTTPException(status_code=400, detail="Empty text")
+    old_text = page_boxes[body.box_index].get("text", "")
+    page_boxes[body.box_index] = {**page_boxes[body.box_index], "text": new_text}
+    wb[str(body.page)] = page_boxes
+    meta["word_boxes"] = wb
+    doc.metadata_ = meta  # rebinding marks JSONB dirty
+
+    reindexed = 0
+    if old_text and old_text != new_text:
+        from src.services.embeddings import encode_texts
+
+        chunks = (
+            await db.execute(select(Chunk).where(Chunk.document_id == doc.id))
+        ).scalars().all()
+        for ch in chunks:
+            if body.page not in (ch.page_numbers or []):
+                continue
+            if old_text in (ch.content or ""):
+                ch.content = ch.content.replace(old_text, new_text, 1)
+                emb = encode_texts([ch.content])[0]
+                ch.embedding = [float(x) for x in emb]
+                reindexed += 1
+
+    await db.commit()
+    await audit(db, current_user, "update", resource_type="document",
+                resource_id=str(doc.id),
+                detail={"op": "word_correction", "page": body.page})
+    await db.commit()
+    return {
+        "page": body.page,
+        "box_index": body.box_index,
+        "old_text": old_text,
+        "text": new_text,
+        "reindexed_chunks": reindexed,
+    }
 
 
 @router.get("/{doc_id}/pdf")
@@ -297,12 +415,42 @@ async def get_document_chunks(
     meta = doc.metadata_ or {}
     word_boxes = meta.get("word_boxes", {})
 
+    # Saneado en lectura: no mostrar valores implausibles aunque vengan de una
+    # extracción previa (p. ej. edad=210). Idempotente.
+    extracted = meta.get("extracted_data")
+    if extracted:
+        from src.services.patient_fields import sanitize_patient_fields
+
+        _was_manual = bool(extracted.get("manual"))
+        extracted = sanitize_patient_fields(extracted)
+        if _was_manual:
+            extracted["manual"] = True
+
+    # Dominios (categorias de keyword) por chunk, para el filtro por dominio.
+    domains_map: dict[str, set[str]] = {}
+    chunk_ids = [r.id for r in rows]
+    if chunk_ids:
+        ck = await db.execute(
+            select(ChunkKeyword.chunk_id, Keyword.category)
+            .join(Keyword, Keyword.id == ChunkKeyword.keyword_id)
+            .where(ChunkKeyword.chunk_id.in_(chunk_ids))
+        )
+        for cid, cat in ck.all():
+            if cat:
+                domains_map.setdefault(str(cid), set()).add(cat)
+
     return {
         "document_id": str(doc.id),
         "document_name": doc.original_name,
         "total_chunks": len(rows),
-        "extracted_data": meta.get("extracted_data"),
+        "extracted_data": extracted,
+        "extract_status": meta.get("extract_status"),
+        "extract_started_at": meta.get("extract_started_at"),
+        "extract_finished_at": meta.get("extract_finished_at"),
+        "extract_eta_s": 120,
         "word_boxes": word_boxes,
+        "word_boxes_dpi": meta.get("word_boxes_dpi", 200),
+        "ocr_low_confidence_pages": meta.get("ocr_low_confidence_pages", []),
         "chunks": [
             {
                 "id": str(r.id),
@@ -311,6 +459,7 @@ async def get_document_chunks(
                 "page_numbers": r.page_numbers or [],
                 "token_count": r.token_count,
                 "chunk_metadata": r.chunk_metadata or {},
+                "domains": sorted(domains_map.get(str(r.id), [])),
             }
             for r in rows
         ],

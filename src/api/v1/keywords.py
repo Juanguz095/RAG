@@ -10,7 +10,8 @@ from pydantic import BaseModel
 from sqlalchemy import delete, select
 
 from src.core.permissions import require_permission
-from src.database import Chunk, ChunkKeyword, Document, Keyword, get_db
+from src.database import Chunk, ChunkKeyword, Document, Keyword, KeywordCandidate, get_db
+from src.services.audit import audit
 from src.services.keywords import extract_keyword_matches
 
 router = APIRouter(prefix="/api/v1/keywords", tags=["keywords"])
@@ -21,24 +22,41 @@ class KeywordIn(BaseModel):
     category: str | None = None
     domain: str | None = None  # WP2: alias de "category" (dominio clínico)
     description: str | None = None
+    priority: int | None = None  # 1=baja 2=media 3=alta
+
+
+class KeywordUpdate(BaseModel):
+    term: str | None = None
+    category: str | None = None
+    domain: str | None = None
+    description: str | None = None
+    priority: int | None = None
+    is_active: bool | None = None
+
+
+def _kw_public(k) -> dict:
+    return {"id": str(k.id), "term": k.term, "category": k.category,
+            "domain": k.category, "description": k.description,
+            "priority": int(getattr(k, "priority", 1) or 1),
+            "is_active": bool(k.is_active)}
 
 
 @router.get("")
 async def list_keywords(
     category: str | None = None,
+    include_inactive: bool = False,
     db=Depends(get_db),
     _u=Depends(require_permission("keywords:read")),
 ):
-    q = select(Keyword).where(Keyword.is_active == True)  # noqa: E712
+    q = select(Keyword)
+    if not include_inactive:
+        q = q.where(Keyword.is_active == True)  # noqa: E712
     if category:
         q = q.where(Keyword.category == category)
+    q = q.order_by(Keyword.category, Keyword.term)
     res = await db.execute(q)
     rows = res.scalars().all() if hasattr(res, "scalars") else list(res)
-    return [
-        {"id": str(k.id), "term": k.term, "category": k.category,
-         "domain": k.category, "description": k.description, "is_active": bool(k.is_active)}
-        for k in rows
-    ]
+    return [_kw_public(k) for k in rows]
 
 
 @router.get("/domains")
@@ -67,16 +85,17 @@ async def create_keyword(body: KeywordIn, db=Depends(get_db), _u=Depends(require
     if existing:
         existing.is_active = True
         existing.category = category or existing.category
+        if body.priority is not None:
+            existing.priority = body.priority
         await db.commit()
         await db.refresh(existing)
-        return {"id": str(existing.id), "term": existing.term, "category": existing.category,
-                "domain": existing.category, "description": existing.description, "is_active": True}
-    kw = Keyword(term=term, category=category, description=body.description, is_active=True)
+        return _kw_public(existing)
+    kw = Keyword(term=term, category=category, description=body.description,
+                 is_active=True, priority=body.priority or 1)
     db.add(kw)
     await db.commit()
     await db.refresh(kw)
-    return {"id": str(kw.id), "term": kw.term, "category": kw.category,
-            "domain": kw.category, "description": kw.description, "is_active": True}
+    return _kw_public(kw)
 
 
 @router.delete("/{kid}")
@@ -88,6 +107,56 @@ async def delete_keyword(kid: uuid.UUID, db=Depends(get_db), _u=Depends(require_
     kw.is_active = False  # delete lógico (RAG-016)
     await db.commit()
     return {"ok": True}
+
+
+@router.patch("/{kid}")
+async def update_keyword(
+    kid: uuid.UUID,
+    body: KeywordUpdate,
+    db=Depends(get_db),
+    _u=Depends(require_permission("keywords:write")),
+):
+    """Edita term/dominio/descripción o reactiva (is_active). RAG-016."""
+    res = await db.execute(select(Keyword).where(Keyword.id == kid))
+    kw = res.scalar_one_or_none()
+    if not kw:
+        raise HTTPException(404, "no existe")
+    changes: dict = {}
+    if body.term is not None:
+        new_term = body.term.strip()
+        if not new_term:
+            raise HTTPException(422, "term vacío")
+        if new_term != kw.term:
+            dup = (
+                await db.execute(
+                    select(Keyword).where(Keyword.term == new_term, Keyword.id != kid)
+                )
+            ).scalar_one_or_none()
+            if dup:
+                raise HTTPException(409, "keyword duplicada")
+            kw.term = new_term
+            changes["term"] = new_term
+    cat = body.category if body.category is not None else body.domain
+    if cat is not None:
+        kw.category = cat.strip() or None
+        changes["category"] = kw.category
+    if body.description is not None:
+        kw.description = body.description
+        changes["description"] = body.description
+    if body.priority is not None:
+        kw.priority = body.priority
+        changes["priority"] = body.priority
+    if body.is_active is not None:
+        kw.is_active = body.is_active
+        changes["is_active"] = body.is_active
+    if not changes:
+        raise HTTPException(422, "nada que actualizar")
+    await db.commit()
+    await db.refresh(kw)
+    await audit(db, _u, "admin_action", resource_type="keyword", resource_id=str(kw.id),
+                detail={"op": "update", "changes": changes})
+    await db.commit()
+    return _kw_public(kw)
 
 
 @router.post("/import")
@@ -184,3 +253,56 @@ async def search_keyword(request: Request, db=Depends(get_db), _u=Depends(requir
             "match_count": getattr(ck, "match_count", 1) if ck is not None else 1,
         })
     return out
+
+
+# ── Candidatos (conceptos emergentes) → validación humana ────────────────
+
+@router.get("/candidates")
+async def list_candidates(
+    status: str = "proposed",
+    db=Depends(get_db),
+    _u=Depends(require_permission("keywords:read")),
+):
+    q = select(KeywordCandidate)
+    if status and status != "all":
+        q = q.where(KeywordCandidate.status == status)
+    q = q.order_by(KeywordCandidate.count.desc())
+    rows = (await db.execute(q)).scalars().all()
+    return [
+        {"id": str(c.id), "term": c.term, "count": c.count,
+         "sample_document": c.sample_document, "status": c.status}
+        for c in rows
+    ]
+
+
+@router.post("/candidates/{cid}/approve", status_code=201)
+async def approve_candidate(
+    cid: uuid.UUID,
+    db=Depends(get_db),
+    _u=Depends(require_permission("keywords:write")),
+):
+    c = (await db.execute(select(KeywordCandidate).where(KeywordCandidate.id == cid))).scalar_one_or_none()
+    if not c:
+        raise HTTPException(404, "candidato no existe")
+    existing = (await db.execute(select(Keyword).where(Keyword.term == c.term))).scalar_one_or_none()
+    if existing:
+        existing.is_active = True
+    else:
+        db.add(Keyword(term=c.term, is_active=True, priority=1))
+    c.status = "approved"
+    await db.commit()
+    return {"ok": True, "term": c.term}
+
+
+@router.post("/candidates/{cid}/reject")
+async def reject_candidate(
+    cid: uuid.UUID,
+    db=Depends(get_db),
+    _u=Depends(require_permission("keywords:write")),
+):
+    c = (await db.execute(select(KeywordCandidate).where(KeywordCandidate.id == cid))).scalar_one_or_none()
+    if not c:
+        raise HTTPException(404, "candidato no existe")
+    c.status = "rejected"
+    await db.commit()
+    return {"ok": True, "term": c.term}

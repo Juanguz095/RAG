@@ -29,6 +29,10 @@ SEED_SYNONYMS: dict[str, dict] = {
             "nro. de documento",
             "n° documento",
             "numero de documento",
+            "carnet de extranjeria",
+            "carnet de extranjería",
+            "CE",
+            "C.E.",
         ],
         "CUIL": [
             "CUIL",
@@ -62,6 +66,9 @@ SEED_SYNONYMS: dict[str, dict] = {
             "HC",
             "expediente clinico",
             "carpeta de historia clinica",
+            "historia",
+            "historial",
+            "historial clinico",
         ],
         "diagnostico": [
             "diagnostico",

@@ -120,7 +120,13 @@ def process_document_task(self, document_id: str, pdf_path: str):
     logger.info(f"Processing document {document_id}")
 
     from pathlib import Path
-    from src.services.ocr import extract_text_pymupdf, ocr_empty_pages_iter
+    from src.services.ocr import (
+        OCR_DPI,
+        OCR_LOW_CONF_THRESHOLD,
+        aggregate_ocr_confidence,
+        extract_text_pymupdf,
+        ocr_empty_pages_iter,
+    )
 
     with Session(sync_engine) as db:
         doc = db.get(Document, document_id)
@@ -142,6 +148,7 @@ def process_document_task(self, document_id: str, pdf_path: str):
 
             word_boxes: dict[int, list[dict]] = {}
             ocr_by_idx: dict[int, str] = {}
+            page_ocr_meta: dict[int, dict] = {}
 
             # Interleave: OCR yields pages while we advance embedding in page order.
             # Pages before the next empty page are native and available immediately.
@@ -175,9 +182,10 @@ def process_document_task(self, document_id: str, pdf_path: str):
                 item = next(ocr_iter, None)
                 if item is None:
                     break
-                idx, text, words = item
+                idx, text, words, meta = item
                 ocr_by_idx[idx] = text
                 word_boxes[idx] = words
+                page_ocr_meta[idx] = meta
                 got += 1
                 # OCR yields in ascending order of empty_list; consume up to and including idx
                 advance_to(idx + 1)
@@ -223,6 +231,21 @@ def process_document_task(self, document_id: str, pdf_path: str):
                 f"(ocr={ocr_elapsed:.1f}s emb_wait={emb_elapsed:.1f}s)"
             )
 
+            # PLAN-009 Fase C: cada chunk hereda la PEOR confianza OCR de sus
+            # páginas. Si cae bajo el umbral queda `low_confidence` para que el
+            # visor lo señale y no se confíe en una lectura manuscrita dudosa.
+            for chunk, _emb in paired:
+                score, engine, low = aggregate_ocr_confidence(
+                    chunk.page_numbers or [], page_ocr_meta
+                )
+                if score is not None:
+                    chunk.chunk_metadata = {
+                        **(chunk.chunk_metadata or {}),
+                        "ocr_score": round(score, 1),
+                        "ocr_engine": engine,
+                        "low_confidence": low,
+                    }
+
             # Etapa keywords (PLAN-006 Fase 4 — RAG-017/018): sección/fragmento
             # en metadata ANTES de crear los Chunk de BD (se propagan ya con ella).
             from src.services.keywords import enrich_section, extract_keyword_matches
@@ -232,6 +255,15 @@ def process_document_task(self, document_id: str, pdf_path: str):
             res_kw = db.execute(select(Keyword).where(Keyword.is_active == True))  # noqa: E712
             kw_rows = res_kw.scalars().all() if hasattr(res_kw, "scalars") else list(res_kw)
             catalog = {kw.term: [kw.term] for kw in kw_rows}
+
+            # Reprocess idempotente (RAG-013): borra chunks/keywords previos del
+            # documento antes de insertar los nuevos (evita duplicados).
+            from sqlalchemy import delete as _delete
+
+            old_ids = select(Chunk.id).where(Chunk.document_id == doc.id)
+            db.execute(_delete(ChunkKeyword).where(ChunkKeyword.chunk_id.in_(old_ids)))
+            db.execute(_delete(Chunk).where(Chunk.document_id == doc.id))
+            db.flush()
 
             db_chunks = [
                 Chunk(
@@ -249,17 +281,83 @@ def process_document_task(self, document_id: str, pdf_path: str):
             doc.total_chunks = len(db_chunks)
             # flush para obtener chunk.id antes de los FK:
             db.flush()
+            matched_terms: set[str] = set()
             for dbc in db_chunks:
                 counts = extract_keyword_matches(dbc, catalog)
                 for term, n in counts.items():
                     kw = next((k for k in kw_rows if k.term == term), None)
                     if kw is not None:
                         db.add(ChunkKeyword(chunk_id=dbc.id, keyword_id=kw.id, match_count=n))
+                        matched_terms.add(term)
+
+            # Dominios del documento = categorías de las keywords detectadas.
+            term_cat = {k.term: k.category for k in kw_rows if getattr(k, "category", None)}
+            doc_domains = sorted({term_cat[t] for t in matched_terms if t in term_cat})
 
             meta = doc.metadata_ or {}
+            meta["domains"] = doc_domains
+
+            # PLAN-009 Fase C: resumen de calidad OCR por página (visibilidad).
+            if page_ocr_meta:
+                meta["ocr_pages"] = {
+                    str(p): {
+                        "engine": m.get("ocr_engine"),
+                        "score": round(float(m.get("ocr_score", 0.0)), 1),
+                    }
+                    for p, m in page_ocr_meta.items()
+                }
+                meta["ocr_low_confidence_pages"] = sorted(
+                    p for p, m in page_ocr_meta.items()
+                    if float(m.get("ocr_score", 100.0)) < OCR_LOW_CONF_THRESHOLD
+                )
+
+            # Candidatos (conceptos emergentes): términos frecuentes fuera del
+            # catálogo de keywords y de los sinónimos. Best-effort.
+            try:
+                import re as _re2
+                from collections import Counter
+
+                from src.database import KeywordCandidate, MedicalSynonym
+
+                known = {k.term.lower() for k in kw_rows}
+                for s in db.execute(select(MedicalSynonym)).scalars().all():
+                    if s.canonical:
+                        known.add(s.canonical.lower())
+                    if s.synonym:
+                        known.add(s.synonym.lower())
+                stop = set(
+                    "para como este esta estos estas fue ser son hay tiene sin sobre todo "
+                    "entre cuando muy bien puede hace los las del una por que con sus mas "
+                    "documento documentos datos paciente nombre fecha tipo codigo numero".split()
+                )
+                cnt: Counter = Counter()
+                for chunk, _emb in paired:
+                    for w in _re2.findall(r"[a-záéíóúñü]{4,}", (chunk.content or "").lower()):
+                        if w in stop or w in known:
+                            continue
+                        cnt[w] += 1
+                for term, n in cnt.most_common(10):
+                    if n < 2:
+                        continue
+                    cand = db.execute(
+                        select(KeywordCandidate).where(KeywordCandidate.term == term)
+                    ).scalar_one_or_none()
+                    if cand:
+                        if cand.status == "proposed":
+                            cand.count = (cand.count or 0) + n
+                    else:
+                        db.add(KeywordCandidate(term=term, count=n,
+                                                sample_document=doc.original_name))
+                db.commit()
+            except Exception as exc:
+                logger.warning(f"Candidate detection failed for {doc.id}: {exc}")
             if word_boxes:
                 meta = {**meta, "word_boxes": {str(k): v for k, v in word_boxes.items()}}
+                # El visor necesita saber a qué DPI están las coordenadas para
+                # convertir a puntos PDF (highlight exacto). Antes se asumía 200.
+                meta["word_boxes_dpi"] = OCR_DPI
             meta.pop("extract_queued", None)
+            meta.pop("extracted_data", None)  # reproceso → re-extraer campos
             # WP1: exponer los tiempos de proceso al usuario (RAG-036 "medir
             # tiempo de carga rápida").
             meta["timings"] = {
@@ -267,6 +365,9 @@ def process_document_task(self, document_id: str, pdf_path: str):
                 "embed_s": round(emb_elapsed, 1),
                 "total_s": round(time.time() - t0, 1),
             }
+            # Estado de la extracción de campos (para el panel del paciente).
+            meta["extract_status"] = "pending"
+            meta["extract_started_at"] = datetime.now(timezone.utc).isoformat()
 
             doc.metadata_ = meta  # new dict each time — JSONB dirty tracking
             doc.status = "completed"
@@ -277,6 +378,13 @@ def process_document_task(self, document_id: str, pdf_path: str):
                 f"Document {document_id} completed: {len(db_chunks)} chunks "
                 f"in {time.time()-t0:.1f}s"
             )
+
+            # Extracción de campos del paciente (best-effort, cola `extract`).
+            # Se dispara al terminar la ingesta (y por tanto también en reproceso).
+            try:
+                enqueue_extract_fields(str(doc.id))
+            except Exception as exc:
+                logger.warning(f"Extract enqueue failed for {doc.id}: {exc}")
 
         except Exception as e:
             doc.status = "error"
@@ -307,6 +415,11 @@ def extract_patient_fields_task(self, document_id: str):
                 return
             meta = dict(doc.metadata_ or {})
             if meta.get("extracted_data") is not None:
+                if meta.get("extract_status") != "done":
+                    meta["extract_status"] = "done"
+                    meta["extract_finished_at"] = datetime.now(timezone.utc).isoformat()
+                    doc.metadata_ = meta
+                    db.commit()
                 return
 
             from src.services.llm import generate_json
@@ -318,16 +431,24 @@ def extract_patient_fields_task(self, document_id: str):
                 .all()
             )
             if not chunks:
+                meta["extract_status"] = "error"
+                meta["extract_finished_at"] = datetime.now(timezone.utc).isoformat()
+                doc.metadata_ = meta
+                db.commit()
                 return
 
-            all_text = "\n".join(c.content for c in chunks)[:3000]
-            context = f"TEXTO OCR:\n{all_text}"
+            all_text = "\n".join(c.content for c in chunks)[:4000]
+            context = f"TEXTO OCR (puede tener ruido):\n{all_text}"
             question = (
-                "Extrae del texto medico. Devuelve el objeto JSON con claves: "
-                "nombre, edad, sexo, dni, historia_clinica, fecha_atencion, "
-                "diagnostico_principal, diagnosticos_secundarios, "
+                "Extrae SOLO datos reales del paciente del texto. Devuelve un objeto JSON con: "
+                "nombre (apellidos y nombres de la persona, NO raza ni sexo), "
+                "edad (numero de anios, 0-120), sexo (M o F), "
+                "dni (numero de documento, 6-12 caracteres), "
+                "historia_clinica (codigo corto), fecha_atencion (dd/mm/aaaa), "
+                "diagnostico_principal, diagnosticos_secundarios (lista), "
                 "signos_vitales (pa, fc, temp, sato2). "
-                "Usa null si falta un valor."
+                "IMPORTANTE: si un valor no aparece claro en el texto, pon null. "
+                "No inventes ni repitas el mismo numero en varios campos."
             )
             extracted = generate_json(context, question, max_tokens=1024)
             cleaned = re.sub(r"```(?:json)?\s*", "", extracted, flags=re.IGNORECASE).strip()
@@ -376,10 +497,18 @@ def extract_patient_fields_task(self, document_id: str):
                 if fresh is None:
                     return
                 new_meta = dict(fresh.metadata_ or {})
-                new_meta["extracted_data"] = json.loads(m.group())
+                from src.services.patient_fields import sanitize_patient_fields
+
+                try:
+                    raw_data = json.loads(m.group())
+                except Exception:
+                    raw_data = {}
+                new_meta["extracted_data"] = sanitize_patient_fields(raw_data)
                 if "word_boxes" in meta and "word_boxes" not in new_meta:
                     new_meta["word_boxes"] = meta["word_boxes"]
                 new_meta.pop("extract_queued", None)
+                new_meta["extract_status"] = "done"
+                new_meta["extract_finished_at"] = datetime.now(timezone.utc).isoformat()
                 fresh.metadata_ = new_meta  # rebinding marks JSONB dirty
                 db.commit()
                 logger.info(
@@ -388,6 +517,8 @@ def extract_patient_fields_task(self, document_id: str):
                 )
             else:
                 meta.pop("extract_queued", None)
+                meta["extract_status"] = "error"
+                meta["extract_finished_at"] = datetime.now(timezone.utc).isoformat()
                 doc.metadata_ = meta  # rebind
                 db.commit()
                 logger.warning(
@@ -401,6 +532,8 @@ def extract_patient_fields_task(self, document_id: str):
                 if fresh is not None:
                     meta = dict(fresh.metadata_ or {})
                     meta.pop("extract_queued", None)
+                    meta["extract_status"] = "error"
+                    meta["extract_finished_at"] = datetime.now(timezone.utc).isoformat()
                     fresh.metadata_ = meta
                     db.commit()
             except Exception:

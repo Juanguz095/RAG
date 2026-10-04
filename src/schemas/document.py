@@ -19,6 +19,7 @@ class DocumentResponse(BaseModel):
     processed_at: Optional[datetime]
     metadata_: Optional[dict[str, Any]] = None
     timings: Optional[dict[str, Any]] = None
+    domains: Optional[list[str]] = None
 
     class Config:
         from_attributes = True

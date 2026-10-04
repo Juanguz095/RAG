@@ -108,7 +108,9 @@ async def keyword_search(
     if not terms:
         return []
 
-    tsquery = " & ".join(f"{t}:*" for t in terms)
+    # OR (no AND): la consulta ya viene expandida con sinonimos; exigir todos
+    # los terminos reduciria demasiado el recall. El re-ranking ordena luego.
+    tsquery = " | ".join(f"{t}:*" for t in terms)
     search_cond = (
         "(to_tsvector('spanish', c.content) @@ to_tsquery('spanish', :tsquery) "
         "OR c.content %> :q)"
@@ -224,7 +226,7 @@ async def hybrid_search(
     async with async_session() as db_vec, async_session() as db_kw:
         vector_rows, keyword_rows = await asyncio.gather(
             vector_search(query_emb, db_vec, limit=top_k * 3, doc_filter=doc_filter),
-            keyword_search(query, db_kw, limit=top_k * 3, doc_filter=doc_filter),
+            keyword_search(expanded_query, db_kw, limit=top_k * 3, doc_filter=doc_filter),
         )
 
     fused = reciprocal_rank_fusion(vector_rows, keyword_rows, query=expanded_query)
