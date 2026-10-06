@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from queue import Queue
 from threading import Event
 from typing import Iterator
@@ -24,13 +24,15 @@ try:
     OCR_AUTO_MIN_SCORE = float(getattr(get_settings(), "OCR_AUTO_MIN_SCORE", 60))
     OCR_LOW_CONF_THRESHOLD = float(getattr(get_settings(), "OCR_LOW_CONF_THRESHOLD", 45))
     OCR_ROTATION_MIN_SCORE = float(getattr(get_settings(), "OCR_ROTATION_MIN_SCORE", 60))
+    OCR_WORKERS = int(getattr(get_settings(), "OCR_WORKERS", 3))
 except Exception:  # pragma: no cover
     OCR_DPI = 150
     OCR_LANG = "spa"
-    OCR_DETECT_ROTATION = True
+    OCR_DETECT_ROTATION = False
     OCR_AUTO_MIN_SCORE = 60.0
     OCR_LOW_CONF_THRESHOLD = 45.0
     OCR_ROTATION_MIN_SCORE = 60.0
+    OCR_WORKERS = 3
 
 
 # ── Fase 1 (PLAN-001): OCR en cascada con motores seleccionables ─────
@@ -197,7 +199,7 @@ def _render_page(doc: pymupdf.Document, page_idx: int, dpi: int = OCR_DPI) -> Im
 
 
 def _ocr_env_context():
-    keys = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OMP_WAIT_POLICY")
+    keys = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OMP_WAIT_POLICY", "OMP_THREAD_LIMIT")
     old = {k: os.environ.get(k) for k in keys}
     return old, keys
 
@@ -315,24 +317,29 @@ _paddle_instance = None
 
 
 # ── Fase B (PLAN-009): RapidOCR (ONNX, PP-OCRv5 latin) para manuscritos ──
-_rapidocr_instance = None
+# Instancia POR HILO: el OCR corre en paralelo (varias páginas a la vez) y
+# RapidOCR no es seguro con una única instancia compartida entre hilos.
+import threading as _threading
+
+_rapidocr_local = _threading.local()
 
 
 def _get_rapidocr():
-    """Instancia RapidOCR perezosa (carga modelos solo cuando se necesita).
+    """Instancia RapidOCR perezosa, una por hilo (segura con OCR paralelo).
 
     Los modelos (PP-OCRv5 latin mobile) se pre-descargaron en el build; con los
     mismos params que aquí, RapidOCR los encuentra en la caché local (offline).
     """
-    global _rapidocr_instance
-    if _rapidocr_instance is not None:
-        return _rapidocr_instance
+    inst = getattr(_rapidocr_local, "instance", None)
+    if inst is not None:
+        return inst
     from rapidocr import RapidOCR
 
     from src.services.rapidocr_params import build_params
 
-    _rapidocr_instance = RapidOCR(params=build_params())
-    return _rapidocr_instance
+    inst = RapidOCR(params=build_params())
+    _rapidocr_local.instance = inst
+    return inst
 
 
 def _rapidocr_page(img: Image.Image) -> tuple[str, list[dict], float]:
@@ -485,61 +492,86 @@ def _render_worker(
         out_q.put((None, None, None))
 
 
+def _ocr_page_full(idx: int, img: Image.Image) -> tuple[int, str, list[dict], dict]:
+    """OCR completo de una página: rotación (opcional) + motor + remapeo.
+
+    Cierra la imagen al terminar. Pensado para correr en un pool de hilos.
+    """
+    try:
+        if OCR_DETECT_ROTATION:
+            angle, fixed = detect_and_fix_rotation(img)
+        else:
+            angle, fixed = 0, img
+        text, words, meta = _ocr_page_dispatch(fixed)
+        # Las coordenadas vienen del espacio ROTADO; el visor muestra la página
+        # original → remapearlas para que el resaltado coincida.
+        if angle:
+            words = _remap_boxes_to_original(words, angle, img.width, img.height)
+        return idx, text, words, meta
+    finally:
+        try:
+            img.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def ocr_empty_pages_iter(
     pdf_bytes: bytes, page_indices: list[int], dpi: int = OCR_DPI
 ) -> Iterator[tuple[int, str, list[dict], dict]]:
     """Yield (page_idx, text, words, meta) as each page finishes OCR.
 
     `meta` = {"ocr_engine": str, "ocr_score": float} de la página (PLAN-009 Fase C).
+    Las páginas se OCR-ean en paralelo (OCR_WORKERS) y se van entregando a medida
+    que terminan; el llamador tolera el orden (bufferiza por índice).
     """
     if not page_indices:
         return
 
     n = len(page_indices)
-    logger.info(f"OCR {n} pages (dpi={dpi})...")
+    workers = max(1, int(OCR_WORKERS))
+    logger.info(f"OCR {n} pages (dpi={dpi}, workers={workers})...")
     t0 = time.time()
 
     old, keys = _ocr_env_context()
     # PASSIVE measured ~15x slower on OCR; single tesseract multi-thread + prefetch.
     os.environ.pop("OMP_NUM_THREADS", None)
     os.environ["OMP_WAIT_POLICY"] = "ACTIVE"
+    # Con varias páginas en paralelo, limitar cada Tesseract a 1 hilo evita
+    # oversubscription (3 workers × N hilos de OpenMP saturan los cores).
+    if workers > 1:
+        os.environ["OMP_THREAD_LIMIT"] = "1"
 
     render_q: Queue = Queue(maxsize=2)
     stop = Event()
-    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="render")
+    render_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="render")
+    ocr_pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="ocr")
     try:
-        pool.submit(_render_worker, pdf_bytes, page_indices, dpi, render_q, stop)
+        render_pool.submit(_render_worker, pdf_bytes, page_indices, dpi, render_q, stop)
+        pending: set = set()
+        render_done = False
         done = 0
+        max_pending = workers + 2  # cola acotada: no acumular imágenes en RAM
         while done < n:
-            idx, img, err = render_q.get()
-            if idx is None:
+            while not render_done and len(pending) < max_pending:
+                idx, img, err = render_q.get()
+                if idx is None:
+                    render_done = True
+                    break
+                if err is not None:
+                    raise err
+                pending.add(ocr_pool.submit(_ocr_page_full, idx, img))
+            if not pending:
                 break
-            if err is not None:
-                raise err
-            try:
-                # Detección y corrección de rotación antes de OCR: la página
-                # invertida del benchmark (page.rotation==0 pero 180° físico)
-                # requiere clasificador propio, no los metadatos del PDF.
-                # Configurable (OCR_DETECT_ROTATION=false) para acelerar cuando
-                # se sabe que los PDFs vienen derechos.
-                if OCR_DETECT_ROTATION:
-                    _angle, fixed = detect_and_fix_rotation(img)
-                else:
-                    _angle, fixed = 0, img
-                text, words, meta = _ocr_page_dispatch(fixed)
-                # Las coordenadas vienen del espacio ROTADO; el visor muestra la
-                # página original → remapearlas para que el resaltado coincida.
-                if _angle:
-                    words = _remap_boxes_to_original(words, _angle, img.width, img.height)
+            finished, pending = wait(pending, return_when=FIRST_COMPLETED)
+            for fut in finished:
+                idx2, text, words, meta = fut.result()
                 done += 1
-                yield idx, text, words, meta
-            finally:
-                if img is not None:
-                    img.close()
+                yield idx2, text, words, meta
         logger.info(f"OCR finished {done} pages in {time.time()-t0:.1f}s")
     finally:
         stop.set()
-        pool.shutdown(wait=False, cancel_futures=True)
+        render_pool.shutdown(wait=False, cancel_futures=True)
+        ocr_pool.shutdown(wait=False, cancel_futures=True)
         _restore_ocr_env(old, keys)
 
 

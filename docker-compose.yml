@@ -56,11 +56,11 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
       - OCR_LANG=${OCR_LANG:-spa}
-      - OCR_DETECT_ROTATION=${OCR_DETECT_ROTATION:-true}
+      - OCR_DETECT_ROTATION=${OCR_DETECT_ROTATION:-false}
       - OCR_ENGINE=${OCR_ENGINE:-auto}
       - OCR_AUTO_MIN_SCORE=${OCR_AUTO_MIN_SCORE:-60}
       - OCR_LOW_CONF_THRESHOLD=${OCR_LOW_CONF_THRESHOLD:-45}
-      - OCR_ROTATION_MIN_SCORE=${OCR_ROTATION_MIN_SCORE:-60}
+      - OCR_WORKERS=${OCR_WORKERS:-3}
       - PERFIL=${PERFIL:-rapido}
       - LLM_MODEL_PATH=${LLM_MODEL_PATH:-}
       - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-160}
@@ -94,10 +94,10 @@ services:
       - OCR_ENGINE=${OCR_ENGINE:-auto}
       - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
       - OCR_LANG=${OCR_LANG:-spa}
-      - OCR_DETECT_ROTATION=${OCR_DETECT_ROTATION:-true}
+      - OCR_DETECT_ROTATION=${OCR_DETECT_ROTATION:-false}
       - OCR_AUTO_MIN_SCORE=${OCR_AUTO_MIN_SCORE:-60}
       - OCR_LOW_CONF_THRESHOLD=${OCR_LOW_CONF_THRESHOLD:-45}
-      - OCR_ROTATION_MIN_SCORE=${OCR_ROTATION_MIN_SCORE:-60}
+      - OCR_WORKERS=${OCR_WORKERS:-3}
       - RERANK_MODEL_NAME=${RERANK_MODEL_NAME:-BAAI/bge-reranker-base}
     depends_on: [redis, postgres, minio]
 

@@ -52,10 +52,14 @@ class Settings(BaseSettings):
     # Idioma de Tesseract. "spa" es ~2x más rápido que "spa+eng" (carga y corre
     # ambos traineddata). Subir a "spa+eng" si hay documentos en inglés.
     OCR_LANG: str = os.getenv("OCR_LANG", "spa")
-    # Detección de rotación (OSD + fallback 0/180). Cuesta pasadas extra de OCR;
-    # poner "false" acelera cuando se sabe que los PDFs vienen derechos.
-    OCR_DETECT_ROTATION: bool = os.getenv("OCR_DETECT_ROTATION", "true").lower() == "true"
+    # Detección de rotación (OSD + fallback 0/180). DESACTIVADA por defecto: los
+    # PDFs suelen venir derechos y el OSD+fallback cuesta ~1,5-2 s/página.
+    # Activar ("true") si hay escaneos girados.
+    OCR_DETECT_ROTATION: bool = os.getenv("OCR_DETECT_ROTATION", "false").lower() == "true"
     OCR_MAX_PAGES_PADDLE: int = 0  # 0 = sin límite
+    # Páginas OCR en paralelo: Tesseract (subproceso) y RapidOCR (onnxruntime)
+    # liberan el GIL → los cores se aprovechan. Sube velocidad sin bajar calidad.
+    OCR_WORKERS: int = int(os.getenv("OCR_WORKERS", "3"))
     # Cascada `auto`: si la confianza media de Tesseract (0-100) cae por debajo
     # de este umbral, se re-OCR la página con RapidOCR (manuscritos).
     OCR_AUTO_MIN_SCORE: float = float(os.getenv("OCR_AUTO_MIN_SCORE", "60"))
