@@ -116,22 +116,38 @@ DEV_AUTH_BYPASS=true
 
 No usar esa configuración en producción.
 
+## Descargar los modelos
+
+El **código fuente no incluye los modelos** (son grandes; GitHub no admite archivos
+de ese tamaño). Se obtienen una sola vez:
+
+~~~powershell
+# LLM local (Qwen2.5-1.5B-Instruct, ~1 GB) -> models/
+pip install huggingface-hub
+python scripts/download_models.py
+~~~
+
+- Los **embeddings** (MiniLM) y el **reranker** (`bge-reranker-base`) se descargan
+  solos la primera vez que arranca la API (requiere internet una vez; quedan en
+  `hf_cache/`).
+- Los modelos de **OCR** (RapidOCR PP-OCRv5) van dentro de la imagen Docker.
+
+> Sin el GGUF en `models/`, la interfaz arranca pero el asistente no genera respuestas.
+
 ## Arranque
 
 ~~~powershell
-docker compose up -d postgres redis minio
-docker compose run --rm api alembic upgrade head
-docker compose run --rm api python scripts/init_db.py --minio-only
-docker compose up -d api worker-ingestion worker-embeddings
+docker compose up -d --build
 ~~~
 
 URLs:
 
 - Interfaz: http://localhost:8000/
+- Tablero BSC (admin): http://localhost:8000/bsc.html
 - Swagger: http://localhost:8000/docs
 - MinIO: http://localhost:9001/
-- Prometheus: http://localhost:9090/
-- Grafana: http://localhost:3000/
+
+Login por defecto: **`admin` / `admin123`**.
 
 ## Uso de la interfaz
 
