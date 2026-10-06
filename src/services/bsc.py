@@ -322,7 +322,7 @@ async def compute_and_snapshot(db, k) -> dict:
     """Compute + snapshot + alerta dedup para un KPI (usado por el endpoint
     /bsc/kpis/{code}/compute y por la tareaCelery kpi.snapshot_all)."""
     from datetime import datetime
-    from sqlalchemy import select
+    from sqlalchemy import func, select
     from src.database import Kpi, KpiSnapshot, Alert
 
     from src.api.v1 import bsc as bsc_api  # _collect_inputs vive ahí
@@ -356,6 +356,42 @@ async def compute_and_snapshot(db, k) -> dict:
         else:
             value = round(100.0 - pct, 2) if total else 0.0
         formula = f"{useful}/{total} respuestas marcadas utiles"
+    elif k.query_type == "doc_total":
+        from src.database import Document
+
+        value = float((await db.execute(select(func.count(Document.id)))).scalar() or 0)
+        formula = "documentos cargados"
+    elif k.query_type == "doc_processed":
+        from src.database import Document
+
+        total = (await db.execute(select(func.count(Document.id)))).scalar() or 0
+        done = (
+            await db.execute(select(func.count(Document.id)).where(Document.status == "completed"))
+        ).scalar() or 0
+        value = round(done / total * 100, 2) if total else 0.0
+        formula = f"{done}/{total} documentos procesados"
+    elif k.query_type == "users_total":
+        from src.database import User
+
+        value = float((await db.execute(select(func.count(User.id)))).scalar() or 0)
+        formula = "usuarios registrados"
+    elif k.query_type == "audit_operations":
+        from src.database import AuditLog
+
+        value = float((await db.execute(select(func.count(AuditLog.id)))).scalar() or 0)
+        formula = "operaciones auditadas"
+    elif k.query_type == "failed_logins":
+        from src.database import AuditLog
+
+        value = float(
+            (
+                await db.execute(
+                    select(func.count(AuditLog.id)).where(AuditLog.action == "login_failed")
+                )
+            ).scalar()
+            or 0
+        )
+        formula = "accesos rechazados (login_failed)"
     else:
         # query_stats / usage_stats: necesitan audit_log (no cargamos chunks).
         data = await bsc_api._collect_inputs(db)

@@ -3,120 +3,119 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>RAG INTELLIGENCE BSC — Del documento a la decisión</title>
+<title>RAG Intelligence BSC — Del documento a la decisión</title>
 <style>
   :root {
-    --bg: #0d1117; --panel: #161b22; --panel2: #1c2331; --border: #2d3748;
-    --fg: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
-    --green: #3fb950; --amber: #d29922; --red: #f85149; --gray: #6e7681;
+    --bg-page:#f5f0eb; --bg-card:#ffffff; --text-primary:#2d2a26; --text-secondary:#6b6560;
+    --text-muted:#9e9893; --accent:#c75b39; --accent-light:#fdf0ec; --accent-hover:#b04a2c;
+    --border:#e8e2db; --border-light:#f0ebe5; --success:#2d8a56; --success-bg:#e8f5ee;
+    --warning:#d4870e; --warning-bg:#fef3cd; --danger:#c0392b; --danger-bg:#fdecea;
+    --shadow-sm:0 1px 3px rgba(0,0,0,0.04); --shadow-md:0 6px 24px rgba(0,0,0,0.08);
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; font-family: 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg); color: var(--fg);
-  }
-  header {
-    padding: 18px 28px; border-bottom: 1px solid var(--border);
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  header h1 { margin: 0; font-size: 20px; letter-spacing: .5px; }
-  header .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
-  header .actions { display: flex; gap: 10px; }
-  button {
-    background: var(--panel2); color: var(--fg); border: 1px solid var(--border);
-    padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
-  }
-  button:hover { border-color: var(--accent); }
-  button.primary { background: #1f6feb; border-color: #1f6feb; }
-  main { padding: 20px 28px; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg-page); color:var(--text-primary); }
+  header { background:#fff; border-bottom:1px solid var(--border); padding:14px 28px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; position:sticky; top:0; z-index:50; }
+  header h1 { margin:0; font-size:19px; }
+  header .sub { color:var(--text-muted); font-size:12px; margin-top:3px; }
+  header .actions { display:flex; gap:8px; flex-wrap:wrap; }
+  button { font:inherit; font-size:13px; background:#fff; color:var(--text-primary); border:1px solid var(--border); padding:8px 14px; border-radius:9px; cursor:pointer; transition:.15s; }
+  button:hover { border-color:var(--accent); color:var(--accent); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.primary:hover { background:var(--accent-hover); color:#fff; }
+  .wrap { max-width:1180px; margin:0 auto; padding:22px 28px 70px; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:16px; padding:20px 22px; margin-bottom:18px; box-shadow:var(--shadow-sm); }
+  .section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted); margin:26px 4px 12px; }
 
-  #login-card {
-    max-width: 380px; margin: 60px auto; background: var(--panel);
-    border: 1px solid var(--border); border-radius: 10px; padding: 26px;
-  }
-  #login-card h2 { margin-top: 0; font-size: 16px; }
-  #login-card input {
-    width: 100%; background: var(--bg); border: 1px solid var(--border);
-    color: var(--fg); padding: 9px 11px; border-radius: 6px; margin: 7px 0 13px;
-  }
+  #login-card { max-width:380px; margin:60px auto; background:#fff; border:1px solid var(--border); border-radius:16px; padding:26px; box-shadow:var(--shadow-md); }
+  #login-card h2 { margin:0 0 14px; font-size:16px; }
+  #login-card label { font-size:12px; font-weight:600; color:var(--text-secondary); }
+  #login-card input { width:100%; border:1px solid var(--border); padding:10px 12px; border-radius:9px; margin:6px 0 14px; font:inherit; }
+  #login-card input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-light); }
 
-  .row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-  @media (max-width: 1100px) { .row4 { grid-template-columns: repeat(2, 1fr); } }
+  /* Ayuda */
+  .help h2 { margin:0 0 8px; font-size:16px; }
+  .help p { margin:0 0 10px; color:var(--text-secondary); font-size:13.5px; line-height:1.6; }
+  .legend { display:flex; gap:18px; flex-wrap:wrap; margin-top:8px; }
+  .legend span { font-size:12.5px; color:var(--text-secondary); display:inline-flex; align-items:center; gap:6px; }
+  .swatch { width:12px; height:12px; border-radius:4px; display:inline-block; }
 
-  .perspective {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 10px; padding: 14px 16px;
-  }
-  .perspective h3 {
-    margin: 0 0 10px; font-size: 13px; text-transform: uppercase;
-    letter-spacing: .8px; color: var(--accent);
-  }
-  .kpi {
-    display: grid; grid-template-columns: 1fr auto auto auto;
-    gap: 8px; align-items: center;
-    padding: 8px 10px; margin: 6px 0; border-radius: 6px;
-    background: var(--panel2); border-left: 3px solid var(--gray);
-    font-size: 13px;
-  }
-  .kpi.green { border-left-color: var(--green); }
-  .kpi.amber { border-left-color: var(--amber); }
-  .kpi.red   { border-left-color: var(--red); }
-  .kpi .val  { font-weight: 600; text-align: right; min-width: 70px; }
-  .kpi .meta { color: var(--muted); font-size: 11px; }
-  .kpi .emo  { font-size: 16px; }
-.kpi .trend { font-size:10px; margin-left:4px; }
-.kpi .trend.up { color:#2e7d32; }
-.kpi .trend.down { color:#c62828; }
-.kpi .trend.flat { color:#999; }
+  /* Resumen ejecutivo */
+  .summary { display:flex; gap:26px; align-items:center; flex-wrap:wrap; }
+  .score-ring { width:130px; height:130px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; position:relative; background:#efeae4; }
+  .score-ring::before { content:''; position:absolute; inset:12px; background:#fff; border-radius:50%; }
+  .score-ring .inner { position:relative; text-align:center; }
+  .score-ring .num { font-size:34px; font-weight:800; line-height:1; }
+  .score-ring .den { font-size:11px; color:var(--text-muted); }
+  .summary-text { flex:1; min-width:260px; }
+  .summary-text h2 { margin:0 0 6px; font-size:22px; }
+  .summary-text .counts { color:var(--text-secondary); font-size:14px; margin-bottom:12px; }
+  .attn-title { font-weight:700; font-size:13px; margin-bottom:8px; }
+  .attn-row { display:flex; gap:8px; align-items:flex-start; padding:8px 12px; background:var(--warning-bg); border-radius:10px; margin-bottom:6px; font-size:13px; }
+  .attn-row .dot { width:9px; height:9px; border-radius:50%; margin-top:5px; flex-shrink:0; }
+  .ok-note { background:var(--success-bg); color:var(--success); padding:10px 14px; border-radius:10px; font-size:13.5px; font-weight:600; }
 
-  .section {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 10px; padding: 16px 18px; margin-top: 18px;
-  }
-  .section h2 { margin: 0 0 12px; font-size: 15px; }
-  .section .formula {
-    font-family: ui-monospace, monospace; font-size: 11px;
-    color: var(--muted); background: var(--bg);
-    padding: 8px 10px; border-radius: 6px; margin-top: 10px; white-space: pre-wrap;
-  }
+  /* Perspectivas */
+  .row4 { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+  @media (max-width:900px) { .row4 { grid-template-columns:1fr; } }
+  .perspective { background:#fff; border:1px solid var(--border); border-radius:16px; padding:16px 18px; box-shadow:var(--shadow-sm); }
+  .persp-head { display:flex; justify-content:space-between; align-items:center; }
+  .persp-head h3 { margin:0; font-size:15px; }
+  .persp-desc { margin:4px 0 12px; font-size:12px; color:var(--text-muted); }
+  .persp-state { width:12px; height:12px; border-radius:50%; background:var(--text-muted); }
+  .persp-state.green { background:var(--success); } .persp-state.amber { background:var(--warning); }
+  .persp-state.red { background:var(--danger); }
+  .kpi { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:10px 12px; border-radius:11px; background:#faf7f4; border-left:4px solid var(--text-muted); margin:8px 0; }
+  .kpi.green { border-left-color:var(--success); }
+  .kpi.amber { border-left-color:var(--warning); }
+  .kpi.red { border-left-color:var(--danger); }
+  .kpi-name { font-weight:600; font-size:13.5px; }
+  .kpi-desc { font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+  .kpi-val { text-align:right; font-weight:800; font-size:17px; }
+  .kpi-sub { font-size:10.5px; color:var(--text-muted); font-weight:500; margin-top:2px; }
+  .trend { font-size:11px; margin-left:3px; }
+  .trend.up { color:var(--success); } .trend.down { color:var(--danger); } .trend.flat { color:var(--text-muted); }
 
-  .heatmap { overflow-x: auto; }
-  table { border-collapse: collapse; font-size: 12px; width: 100%; }
-  th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: center; }
-  th { background: var(--panel2); color: var(--muted); font-weight: 600; }
-  td.rowhead { text-align: left; font-weight: 600; white-space: nowrap; }
-  td.h1 { background: #2ea04355; }
-  td.h2 { background: #f0883e77; }
-  td.h3 { background: #f8514999; }
-  td.h0 { background: #21262d; color: var(--muted); }
+  /* Detalle */
+  .detail h2 { margin:0 0 4px; font-size:15px; }
+  .detail .lead { color:var(--text-muted); font-size:12.5px; margin:0 0 14px; }
+  .metric-line { font-size:14px; line-height:2; color:var(--text-secondary); }
+  .metric-line b { color:var(--text-primary); }
 
-  .gap-list { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip {
-    background: var(--panel2); border: 1px solid var(--red);
-    color: var(--fg); padding: 4px 10px; border-radius: 12px; font-size: 12px;
-  }
-  .chip.emj { border-color: var(--accent); }
+  .heatmap { overflow-x:auto; }
+  table { border-collapse:collapse; font-size:12px; width:100%; }
+  th, td { border:1px solid var(--border); padding:6px 10px; text-align:center; }
+  th { background:#faf7f4; color:var(--text-secondary); font-weight:600; position:sticky; top:0; }
+  td.rowhead { text-align:left; font-weight:600; white-space:nowrap; }
+  td.h1 { background:#cdebd8; } td.h2 { background:#fdeec2; } td.h3 { background:#fbd9d3; } td.h0 { background:#f7f3ef; color:var(--text-muted); }
 
-  table.plain th { text-align: left; }
-  select, input[type="text"], input[type="date"] {
-    background: var(--bg); border: 1px solid var(--border);
-    color: var(--fg); padding: 7px 10px; border-radius: 6px; font-size: 13px;
-  }
-  .toolbar { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .gap-list { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { background:#fff; border:1px solid var(--danger); color:var(--danger); padding:4px 11px; border-radius:20px; font-size:12px; }
+  .chip.emj { border-color:var(--accent); color:var(--accent); }
+  .muted-note { color:var(--text-muted); font-size:12.5px; }
+
+  table.plain th { text-align:left; }
+  select, input[type="text"] { font:inherit; font-size:13px; background:#fff; border:1px solid var(--border); padding:8px 10px; border-radius:9px; color:var(--text-primary); }
+  select:focus, input[type="text"]:focus { outline:none; border-color:var(--accent); }
+  .toolbar { display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+  .status-pill { font-size:11px; font-weight:600; padding:2px 9px; border-radius:20px; }
+  .status-pill.open { background:var(--warning-bg); color:var(--warning); }
+  .status-pill.in_progress { background:#e6f0fb; color:#2b6cb0; }
+  .status-pill.done { background:var(--success-bg); color:var(--success); }
+  .status-pill.cancelled { background:#eee; color:var(--text-muted); }
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1>RAG INTELLIGENCE BSC</h1>
+    <h1>RAG Intelligence BSC</h1>
     <div class="sub">Del documento a la decisión — indicadores locales, sin nube</div>
   </div>
   <div class="actions">
-    <button onclick="loadAll()">🔄 Refrescar</button>
-    <button class="primary" onclick="computeAll(false)">⚙️ Recalcular KPIs</button>
-    <a href="#" id="pdf-link" onclick="downloadReport('pdf');return false"><button>📄 PDF</button></a>
-    <a href="#" id="xlsx-link" onclick="downloadReport('xlsx');return false"><button>📊 XLSX</button></a>
-     <a href="#" onclick="downloadReport('csv');return false"><button>🧾 CSV historial</button></a>
+    <button onclick="loadAll()">↻ Actualizar</button>
+    <button class="primary" onclick="computeAll()">⚙ Recalcular indicadores</button>
+    <a href="#" onclick="downloadReport('pdf');return false"><button>PDF</button></a>
+    <a href="#" onclick="downloadReport('xlsx');return false"><button>Excel</button></a>
+    <a href="#" onclick="downloadReport('csv');return false"><button>Historial CSV</button></a>
     <button onclick="logout()">Salir</button>
   </div>
 </header>
@@ -127,78 +126,103 @@
   <input id="username" value="admin" />
   <label for="password">Contraseña</label>
   <input id="password" type="password" />
-  <div class="toolbar" style="margin-top:14px">
-    <button class="primary" style="width:100%" onclick="login()">Ingresar</button>
-  </div>
-  <div id="login-err" style="color:var(--red);font-size:12px;margin-top:8px"></div>
+  <div style="margin-top:8px"><button class="primary" style="width:100%" onclick="login()">Ingresar</button></div>
+  <div id="login-err" style="color:var(--danger);font-size:12px;margin-top:10px"></div>
 </div>
 
-<div id="no-access" style="display:none;max-width:520px;margin:80px auto;background:#fff;border:1px solid #e8e2db;border-radius:16px;padding:36px;text-align:center">
+<div id="no-access" style="display:none;max-width:520px;margin:80px auto;background:#fff;border:1px solid var(--border);border-radius:16px;padding:36px;text-align:center;box-shadow:var(--shadow-md)">
   <h2 style="margin:0 0 8px">Acceso restringido</h2>
-  <p style="color:#6b6560;font-size:14px;margin:0">El panel de calidad (BSC) es solo para el administrador.</p>
+  <p style="color:var(--text-secondary);font-size:14px;margin:0">El panel de calidad (BSC) es solo para el administrador.</p>
   <button class="primary" style="margin-top:20px" onclick="logout()">Salir</button>
 </div>
 
-<main id="dash" style="display:none">
+<main id="dash" class="wrap" style="display:none">
+
+  <!-- 1. Qué es esto -->
+  <section class="card help">
+    <h2>¿Qué es este tablero?</h2>
+    <p>El <b>BSC (Balanced Scorecard)</b> convierte el funcionamiento del sistema en <b>indicadores</b> para tomar decisiones.
+       Cada indicador (KPI) tiene un <b>valor</b>, una <b>meta</b> y un <b>semáforo</b> que dice si estamos bien o hay que actuar.</p>
+    <p>Se organiza en <b>4 perspectivas</b>: el conocimiento de los documentos, la calidad del motor RAG, el uso del sistema y la seguridad.</p>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--success)"></i> Bien (cumple la meta)</span>
+      <span><i class="swatch" style="background:var(--warning)"></i> Atención (por debajo)</span>
+      <span><i class="swatch" style="background:var(--danger)"></i> Crítico (requiere acción)</span>
+      <span>▲ mejora · ▼ empeora · – sin cambios (vs. cálculo anterior)</span>
+    </div>
+  </section>
+
+  <!-- 2. Resumen ejecutivo -->
+  <section class="card summary">
+    <div class="score-ring" id="score-ring"><div class="inner"><div class="num" id="score-val">·</div><div class="den">de 100</div></div></div>
+    <div class="summary-text">
+      <h2 id="score-verdict">Cargando…</h2>
+      <div class="counts" id="summary-counts"></div>
+      <div id="attention"></div>
+    </div>
+  </section>
+
+  <!-- 3. Perspectivas -->
+  <div class="section-title">Tablero por perspectivas</div>
   <div class="row4" id="perspectives"></div>
 
-  <div class="section">
-    <h2>Score global ejecutivo <span id="score-state"></span></h2>
-    <div style="display:flex;align-items:baseline;gap:14px">
-      <span id="score-val" style="font-size:44px;font-weight:700"></span>
-      <span style="color:var(--muted)">/ 100</span>
-    </div>
-    <div class="formula" id="score-formula"></div>
-    <div style="color:var(--muted);font-size:11px;margin-top:6px">
-      Indicador de gestión con fórmula configurable — NO es probabilidad de que las respuestas de la IA sean verdaderas.
-    </div>
-  </div>
+  <!-- 4. Detalle -->
+  <div class="section-title">Detalle</div>
 
-  <div class="section">
-    <h2>Consultas RAG (con/sin evidencia)</h2>
-    <div id="queries-metrics" style="font-size:14px;line-height:1.9"></div>
-  </div>
+  <section class="card detail">
+    <h2>Consultas al asistente RAG</h2>
+    <p class="lead">Cuántas preguntas se hicieron y cuántas se respondieron con evidencia de los documentos.</p>
+    <div class="metric-line" id="queries-metrics"></div>
+  </section>
 
-  <div class="section">
-    <h2>Uso por usuario / cliente (30 días)</h2>
-    <div id="usage-metrics" style="font-size:14px;line-height:1.9"></div>
-  </div>
+  <section class="card detail">
+    <h2>Uso del sistema</h2>
+    <p class="lead">Quién usa el sistema y cuánto (últimos 30 días).</p>
+    <div class="metric-line" id="usage-metrics"></div>
+  </section>
 
-  <div class="section">
-    <h2>Heatmap documento × palabra clave (frecuencia)
-      <select id="gaps-domain" onchange="loadGaps().then(render)" style="font:inherit;font-size:12px;margin-left:10px;padding:4px 8px;border:1px solid #e8e2db;border-radius:6px">
-        <option value="">Todos los dominios</option>
-      </select>
-    </h2>
-    <div class="heatmap"><table id="heatmap-table"></table></div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">
-      🟩 ≥5 · 🟨 2-4 · 🟥 1 · ⬛ 0 — celda = apariciones del keyword en el documento.
-    </div>
-  </div>
-
-  <div class="section">
-    <h2>Brechas de conocimiento (keywords sin evidencia)</h2>
-    <div class="gap-list" id="gap-chips"></div>
-  </div>
-
-  <div class="section">
-    <h2>Conceptos emergentes (frecuentes, fuera del catálogo)</h2>
-    <div class="gap-list" id="emergent-chips"></div>
-  </div>
-
-  <div class="section">
-    <h2>Plan de acción</h2>
+  <section class="card detail">
+    <h2>Mapa de calor: documento × palabra clave</h2>
+    <p class="lead">Cuántas veces aparece cada palabra clave en cada documento. Ayuda a ver de qué se habla (y de qué no).</p>
     <div class="toolbar">
-      <input type="text" id="plan-title" placeholder="Título del plan" style="flex:1;min-width:220px" />
-      <select id="plan-kpi"><option value="">— KPI (opcional) —</option></select>
+      <select id="gaps-domain" onchange="loadGaps().then(render)"><option value="">Todos los dominios</option></select>
+    </div>
+    <div class="heatmap"><table id="heatmap-table"></table></div>
+    <div class="legend" style="margin-top:10px">
+      <span><i class="swatch" style="background:#cdebd8"></i> Muchas (≥5)</span>
+      <span><i class="swatch" style="background:#fdeec2"></i> Algunas (2-4)</span>
+      <span><i class="swatch" style="background:#fbd9d3"></i> Pocas (1)</span>
+      <span><i class="swatch" style="background:#f7f3ef"></i> Ninguna (0)</span>
+    </div>
+  </section>
+
+  <section class="card detail">
+    <h2>Brechas de conocimiento</h2>
+    <p class="lead">Palabras clave importantes que <b>no aparecen en ningún documento</b>: conviene incorporar documentación sobre ellas.</p>
+    <div class="gap-list" id="gap-chips"></div>
+  </section>
+
+  <section class="card detail">
+    <h2>Conceptos emergentes</h2>
+    <p class="lead">Términos frecuentes que aparecen en los documentos pero aún no están en el catálogo de palabras clave (candidatos a añadir).</p>
+    <div class="gap-list" id="emergent-chips"></div>
+  </section>
+
+  <!-- 5. Planes -->
+  <section class="card detail">
+    <h2>Planes de acción</h2>
+    <p class="lead">Para los indicadores en amarillo o rojo, registra qué se hará, quién y cómo va.</p>
+    <div class="toolbar">
+      <input type="text" id="plan-title" placeholder="¿Qué se va a hacer?" style="flex:1;min-width:220px" />
+      <select id="plan-kpi"><option value="">Indicador relacionado (opcional)</option></select>
       <input type="text" id="plan-owner" placeholder="Responsable" style="width:150px" />
-      <button class="primary" onclick="createPlan()">➕ Registrar</button>
+      <button class="primary" onclick="createPlan()">Registrar plan</button>
     </div>
     <table class="plain" id="plans-table">
-      <thead><tr><th>Título</th><th>KPI</th><th> Responsable</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Qué</th><th>Indicador</th><th>Responsable</th><th>Estado</th></tr></thead>
       <tbody></tbody>
     </table>
-  </div>
+  </section>
 </main>
 
 <script>
@@ -206,9 +230,7 @@ const API = '';
 let T = localStorage.getItem('token');
 let ROLE = localStorage.getItem('role') || '';
 
-function hdrs() {
-  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + T };
-}
+function hdrs() { return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + T }; }
 async function jf(url, opts = {}) {
   const r = await fetch(url, { headers: hdrs(), ...opts });
   if (r.status === 401) { showLogin(); throw new Error('401'); }
@@ -253,163 +275,238 @@ function showLogin() { document.getElementById('login-card').style.display = '';
 function showDash() { document.getElementById('login-card').style.display = 'none'; document.getElementById('no-access').style.display = 'none'; document.getElementById('dash').style.display = ''; loadAll(); }
 function showNoAccess() { document.getElementById('login-card').style.display = 'none'; document.getElementById('dash').style.display = 'none'; document.getElementById('no-access').style.display = 'block'; }
 
+function esc(t) { return (t == null ? '' : String(t)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Explicación de cada perspectiva (en lenguaje llano).
 const PERSP = [
-  { key: 'conocimiento', title: 'P1 · Conocimiento Documental' },
-  { key: 'rag', title: 'P2 · Inteligencia RAG' },
-  { key: 'usuario', title: 'P3 · Usuario y Servicio' },
-  { key: 'seguridad', title: 'P4 · Seguridad y Gobierno' },
+  { key: 'conocimiento', title: 'Conocimiento documental', desc: '¿Tenemos la información y está cubierta por las palabras clave?' },
+  { key: 'rag', title: 'Inteligencia RAG', desc: '¿El sistema responde bien y con evidencia de los documentos?' },
+  { key: 'usuario', title: 'Usuario y servicio', desc: '¿Se usa el sistema y resulta útil a las personas?' },
+  { key: 'seguridad', title: 'Seguridad y gobierno', desc: '¿Todo queda controlado, auditado y sin accesos indebidos?' },
 ];
+
+// Qué mide cada indicador (en lenguaje llano).
+const KPI_INFO = {
+  DOC_TOTAL: { desc: 'Documentos cargados en el sistema.' },
+  DOC_PROCESSED: { desc: 'Porcentaje de documentos procesados correctamente.' },
+  KEYWORD_COVERAGE: { desc: 'Porcentaje de palabras clave del catálogo que aparecen en los documentos.' },
+  KEYWORD_GAPS: { desc: 'Palabras clave sin evidencia en ningún documento.' },
+  QUERY_TOTAL: { desc: 'Consultas realizadas al asistente.' },
+  QUERY_WITH_EVIDENCE: { desc: 'Porcentaje de consultas respondidas con evidencia.' },
+  QUERY_NO_EVIDENCE: { desc: 'Porcentaje de consultas sin evidencia suficiente.' },
+  USERS_TOTAL: { desc: 'Usuarios registrados.' },
+  USAGE_ACTIVE_USERS: { desc: 'Usuarios activos en los últimos 30 días.' },
+  USAGE_QUERIES_PER_USER: { desc: 'Consultas promedio por usuario.' },
+  USAGE_DOCS_PER_USER: { desc: 'Documentos cargados promedio por usuario.' },
+  FEEDBACK_USEFUL: { desc: 'Porcentaje de respuestas marcadas como útiles por los usuarios.' },
+  FEEDBACK_UNUSEFUL: { desc: 'Porcentaje de respuestas marcadas como no útiles.' },
+  AUDIT_OPERATIONS: { desc: 'Operaciones registradas en la auditoría.' },
+  FAILED_LOGINS: { desc: 'Intentos de acceso rechazados.' },
+};
+const STATE_LABEL = { green: 'Bien', amber: 'Atención', red: 'Crítico', gray: 'Sin calcular' };
 
 let KPIS = [];
 
 async function loadAll() {
-  try { /* links ahora blob-download con auth */ } catch {}
-  await Promise.all([loadKpis(), loadDomains(), loadGaps(), loadQueries(), loadScore(), loadPlans(), loadUsage()]);
+  await loadKpis();
+  // Computar (una sola vez) los indicadores que aún no tienen valor.
+  const missing = KPIS.filter(k => k.last_value == null).map(k => k.code);
+  if (missing.length) {
+    await Promise.all(missing.map(code =>
+      fetch(API + '/api/v1/bsc/kpis/' + code + '/compute', { method: 'POST', headers: hdrs(), body: '{}' }).catch(() => {})
+    ));
+    await loadKpis();
+  }
+  await Promise.all([loadDomains(), loadGaps(), loadScore(), loadPlans(), loadUsage()]);
   render();
 }
-async function loadKpis() {
-  try { KPIS = (await jf(API + '/api/v1/bsc/kpis')).items; } catch { KPIS = []; }
-}
+async function loadKpis() { try { KPIS = (await jf(API + '/api/v1/bsc/kpis')).items || []; } catch { KPIS = []; } }
 async function loadDomains() {
   try {
     const doms = await jf(API + '/api/v1/keywords/domains');
     const sel = document.getElementById('gaps-domain');
-    if (sel && Array.isArray(doms)) {
-      sel.innerHTML = '<option value="">Todos los dominios</option>' +
-        doms.map(d => '<option value="' + d + '">' + d + '</option>').join('');
-    }
-  } catch { /* sin dominios */ }
+    if (sel && Array.isArray(doms)) sel.innerHTML = '<option value="">Todos los dominios</option>' + doms.map(d => '<option value="' + esc(d) + '">' + esc(d) + '</option>').join('');
+  } catch {}
 }
 async function loadGaps() {
   const sel = document.getElementById('gaps-domain');
   const dom = sel && sel.value ? sel.value : '';
   try { window.GAPS = await jf(API + '/api/v1/bsc/gaps' + (dom ? '?domain=' + encodeURIComponent(dom) : '')); } catch { window.GAPS = {}; }
 }
-async function loadQueries() {
-  try {
-    const kpis = KPIS;
-    window.QM = kpis.filter(k => k.code === 'QUERY_TOTAL' || k.code === 'QUERY_WITH_EVIDENCE' || k.code === 'QUERY_NO_EVIDENCE');
-  } catch { window.QM = []; }
-}
-async function loadScore() {
-  try { window.SCORE = await jf(API + '/api/v1/bsc/score'); } catch { window.SCORE = {}; }
-}
-async function loadPlans() {
-  try { window.PLANS = (await jf(API + '/api/v1/bsc/action-plans')).items; } catch { window.PLANS = []; }
-}
-async function loadUsage() {
-  try { window.USAGE = await jf(API + '/api/v1/bsc/usage'); } catch { window.USAGE = {}; }
-}
+async function loadScore() { try { window.SCORE = await jf(API + '/api/v1/bsc/score'); } catch { window.SCORE = {}; } }
+async function loadPlans() { try { window.PLANS = (await jf(API + '/api/v1/bsc/action-plans')).items || []; } catch { window.PLANS = []; } }
+async function loadUsage() { try { window.USAGE = await jf(API + '/api/v1/bsc/usage'); } catch { window.USAGE = {}; } }
 
 async function computeAll() {
-  const codes = KPIS.map(k => k.code);
-  for (const code of codes) {
-    try { await fetch(API + '/api/v1/bsc/kpis/' + code + '/compute', { method: 'POST', headers: hdrs(), body: '{}' }); } catch {}
+  for (const k of KPIS) {
+    try { await fetch(API + '/api/v1/bsc/kpis/' + k.code + '/compute', { method: 'POST', headers: hdrs(), body: '{}' }); } catch {}
   }
   await loadAll();
 }
 
-async function createPlan() {
-  const title = document.getElementById('plan-title').value;
-  if (!title) return;
-  const kpiCode = document.getElementById('plan-kpi').value;
-  const body = {
-    title,
-    owner: document.getElementById('plan-owner').value || null,
-    kpi_code: kpiCode || null,
-  };
-  await fetch(API + '/api/v1/bsc/action-plans', { method: 'POST', headers: hdrs(), body: JSON.stringify(body) });
-  document.getElementById('plan-title').value = '';
-  loadPlans();
-}
-
-async function advancePlan(id, status) {
-  await fetch(API + '/api/v1/bsc/action-plans/' + id, { method: 'PATCH', headers: hdrs(), body: JSON.stringify({ status }) });
-  loadPlans();
-}
-
 function trendArrow(t) {
   if (!t) return '';
-  const a = t.arrow === 'up' ? '\u25B2' : (t.arrow === 'down' ? '\u25BC' : '\u2013');
+  const a = t.arrow === 'up' ? '▲' : (t.arrow === 'down' ? '▼' : '–');
   const cls = t.improved === true ? 'up' : (t.improved === false ? 'down' : 'flat');
-  return '<span class="trend ' + cls + '" title="variacion ' + t.delta + ' vs. calculo anterior">' + a + '</span>';
+  const tip = 'vs. cálculo anterior: ' + (t.delta > 0 ? '+' : '') + t.delta;
+  return '<span class="trend ' + cls + '" title="' + tip + '">' + a + '</span>';
 }
 
-function render() {
-  // perspectives
+function renderSummary() {
+  const score = window.SCORE || {};
+  const val = (score.value != null) ? Math.round(score.value) : null;
+  const ring = document.getElementById('score-ring');
+  let color = '#9e9893', verdict = 'Sin datos todavía';
+  if (val != null) {
+    if (val >= 80) { color = 'var(--success)'; verdict = 'Buen estado general'; }
+    else if (val >= 60) { color = 'var(--warning)'; verdict = 'Requiere atención'; }
+    else { color = 'var(--danger)'; verdict = 'Estado crítico'; }
+    ring.style.background = 'conic-gradient(' + color + ' ' + val + '%, #efeae4 ' + val + '%)';
+  }
+  const vEl = document.getElementById('score-verdict');
+  vEl.textContent = verdict; vEl.style.color = color;
+  document.getElementById('score-val').textContent = val != null ? val : '·';
+
+  const green = KPIS.filter(k => k.state === 'green').length;
+  const amber = KPIS.filter(k => k.state === 'amber').length;
+  const red = KPIS.filter(k => k.state === 'red').length;
+  const gray = KPIS.filter(k => !k.state || k.state === 'gray').length;
+  document.getElementById('summary-counts').innerHTML =
+    'De <b>' + KPIS.length + '</b> indicadores: <b style="color:var(--success)">' + green + ' bien</b>, ' +
+    '<b style="color:var(--warning)">' + amber + ' en atención</b>, <b style="color:var(--danger)">' + red + ' críticos</b>' +
+    (gray ? ', ' + gray + ' sin calcular' : '') + '.';
+
+  const attn = KPIS.filter(k => k.state === 'amber' || k.state === 'red');
+  const box = document.getElementById('attention');
+  if (!attn.length) {
+    box.innerHTML = '<div class="ok-note">✓ Ningún indicador requiere atención en este momento.</div>';
+  } else {
+    box.innerHTML = '<div class="attn-title">Requiere atención:</div>' + attn.map(k => {
+      const info = KPI_INFO[k.code] || {};
+      const col = k.state === 'red' ? 'var(--danger)' : 'var(--warning)';
+      const v = k.last_value != null ? (k.last_value + (k.unit === '%' ? '%' : '')) : '·';
+      const tgt = k.target != null ? ' (meta ' + k.target + k.unit + ')' : '';
+      return '<div class="attn-row"><span class="dot" style="background:' + col + '"></span><div><b>' + esc(k.name) + '</b>: ' + v + tgt + '. ' + esc(info.desc || '') + '</div></div>';
+    }).join('');
+  }
+}
+
+function kpiRowHtml(k) {
+  const info = KPI_INFO[k.code] || {};
+  const val = k.last_value != null ? (k.last_value + (k.unit === '%' ? '%' : '')) : '·';
+  const tgt = k.target != null ? 'meta ' + k.target + k.unit : '';
+  const state = k.state || 'gray';
+  const sub = [tgt, STATE_LABEL[state]].filter(Boolean).join(' · ');
+  return '<div class="kpi ' + state + '">'
+    + '<div><div class="kpi-name">' + esc(k.name) + trendArrow(k.trend) + '</div>'
+    + '<div class="kpi-desc">' + esc(info.desc || '') + '</div></div>'
+    + '<div class="kpi-val">' + val + '<div class="kpi-sub">' + esc(sub) + '</div></div>'
+    + '</div>';
+}
+
+function renderPerspectives() {
   const el = document.getElementById('perspectives');
   el.innerHTML = '';
   for (const p of PERSP) {
     const items = KPIS.filter(k => k.perspective === p.key);
+    let pstate = 'gray';
+    if (items.some(k => k.state === 'red')) pstate = 'red';
+    else if (items.some(k => k.state === 'amber')) pstate = 'amber';
+    else if (items.some(k => k.state === 'green')) pstate = 'green';
     const div = document.createElement('div');
     div.className = 'perspective';
-    div.innerHTML = '<h3>' + p.title + '</h3>';
-    for (const k of items) {
-      const row = document.createElement('div');
-      row.className = 'kpi ' + (k.state || 'gray');
-      row.innerHTML =
-        '<div><div>' + k.name + '</div><div class="meta">' + (k.computed_at ? 'calc. ' + k.computed_at.slice(0, 16) : 'sin calcular') + '</div></div>' +
-        '<div class="val">' + (k.last_value != null ? k.last_value : '·') + (k.unit === '%' ? '%' : '') + trendArrow(k.trend) + '</div>' +
-        '<div class="meta">' + (k.target != null ? 'meta ' + k.target + k.unit : '') + '</div>' +
-        '<div class="emo">' + (k.emoji || '⚪') + '</div>';
-      div.appendChild(row);
-      const sel = document.getElementById('plan-kpi');
-      if (![...sel.options].some(o => o.value === k.code)) {
-        const op = document.createElement('option'); op.value = k.code; op.textContent = k.code; sel.appendChild(op);
-      }
-    }
+    div.innerHTML = '<div class="persp-head"><h3>' + esc(p.title) + '</h3><span class="persp-state ' + pstate + '" title="' + STATE_LABEL[pstate] + '"></span></div>'
+      + '<p class="persp-desc">' + esc(p.desc) + '</p>'
+      + (items.length ? items.map(kpiRowHtml).join('') : '<div class="muted-note">Sin indicadores.</div>');
     el.appendChild(div);
+    const sel = document.getElementById('plan-kpi');
+    items.forEach(k => { if (![...sel.options].some(o => o.value === k.code)) { const op = document.createElement('option'); op.value = k.code; op.textContent = k.name; sel.appendChild(op); } });
   }
-  // queries
-  const q = document.getElementById('queries-metrics');
-  (window.QM || []).forEach(k => {
-    q.innerHTML += '<div>' + (k.emoji || '') + ' <b>' + k.name + ':</b> ' + (k.last_value != null ? k.last_value : '·') + ' ' + (k.unit || '') + '</div>';
-  });
-  // usage por usuario (WP11)
+}
+
+function renderDetails() {
+  // Consultas RAG
+  const q = KPIS.filter(k => ['QUERY_TOTAL', 'QUERY_WITH_EVIDENCE', 'QUERY_NO_EVIDENCE'].includes(k.code));
+  const qm = document.getElementById('queries-metrics');
+  qm.innerHTML = q.length ? q.map(k => '<div>' + esc(k.name) + ': <b>' + (k.last_value != null ? k.last_value + (k.unit === '%' ? '%' : '') : '·') + '</b></div>').join('') : '<div class="muted-note">Sin datos de consultas.</div>';
+
+  // Uso
   const us = window.USAGE || {};
   const um = document.getElementById('usage-metrics');
-  let uh = '<div>👥 Usuarios activos: <b>' + (us.active_users != null ? us.active_users : '·') + '</b></div>';
-  uh += '<div>🔎 Consultas totales: <b>' + (us.total_queries != null ? us.total_queries : '·') + '</b> · 📄 Documentos subidos: <b>' + (us.total_uploads != null ? us.total_uploads : '·') + '</b></div>';
-  const qpu = us.queries_per_user || {};
-  const dpu = us.docs_per_user || {};
+  let uh = '<div>Usuarios activos (30 días): <b>' + (us.active_users != null ? us.active_users : '·') + '</b></div>';
+  uh += '<div>Consultas totales: <b>' + (us.total_queries != null ? us.total_queries : '·') + '</b> · Documentos subidos: <b>' + (us.total_uploads != null ? us.total_uploads : '·') + '</b></div>';
+  const qpu = us.queries_per_user || {}; const dpu = us.docs_per_user || {};
   const users = [...new Set([...Object.keys(qpu), ...Object.keys(dpu)])];
-  for (const u of users) {
-    uh += '<div style="color:var(--muted)">· <b>' + u + '</b>: ' + (qpu[u] ?? 0) + ' consultas, ' + (dpu[u] ?? 0) + ' documentos</div>';
-  }
+  for (const u of users) uh += '<div style="color:var(--text-muted)">· <b>' + esc(u) + '</b>: ' + (qpu[u] ?? 0) + ' consultas, ' + (dpu[u] ?? 0) + ' documentos</div>';
   um.innerHTML = uh;
-  // score
-  const sv = window.SCORE || {};
-  document.getElementById('score-val').textContent = sv.value != null ? sv.value : '·';
-  document.getElementById('score-formula').textContent = sv.formula || '';
-  document.getElementById('score-state').textContent = (sv.value >= 80) ? '🟢' : (sv.value >= 60 ? '🟡' : '🔴');
-  // gaps
-  document.getElementById('gap-chips').innerHTML = ((window.GAPS || {}).brechas || []).slice(0, 40).map(t => '<span class="chip">' + t + '</span>').join('');
-  document.getElementById('emergent-chips').innerHTML = ((window.GAPS || {}).emergentes || []).map(t => '<span class="chip emj">' + t + '</span>').join('');
-  // heatmap
+
+  // Heatmap
   const hm = (window.GAPS || {}).heatmap || [];
   const terms = [...new Set(hm.flatMap(r => Object.keys(r).filter(key => key !== 'document' && key !== 'document_id')))];
   const t = document.getElementById('heatmap-table');
-  let h = '<thead><tr><th>Documento</th>' + terms.map(x => '<th>' + x + '</th>').join('') + '</tr></thead><tbody>';
-  for (const row of hm) {
-    h += '<tr><td class="rowhead">' + row.document + '</td>';
-    for (const term of terms) {
-      const v = row[term] || 0;
-      const cls = v >= 5 ? 'h1' : v >= 2 ? 'h2' : v === 1 ? 'h3' : 'h0';
-      h += '<td class="' + cls + '">' + v + '</td>';
+  if (!hm.length || !terms.length) {
+    t.innerHTML = '<tbody><tr><td class="muted-note">Sin coincidencias de palabras clave todavía.</td></tr></tbody>';
+  } else {
+    let h = '<thead><tr><th>Documento</th>' + terms.map(x => '<th>' + esc(x) + '</th>').join('') + '</tr></thead><tbody>';
+    for (const row of hm) {
+      h += '<tr><td class="rowhead">' + esc(row.document) + '</td>';
+      for (const term of terms) {
+        const v = row[term] || 0;
+        const cls = v >= 5 ? 'h1' : v >= 2 ? 'h2' : v === 1 ? 'h3' : 'h0';
+        h += '<td class="' + cls + '">' + v + '</td>';
+      }
+      h += '</tr>';
     }
-    h += '</tr>';
+    h += '</tbody>';
+    t.innerHTML = h;
   }
-  h += '</tbody>';
-  t.innerHTML = h;
-  // plans
+
+  // Brechas
+  const gaps = ((window.GAPS || {}).brechas) || [];
+  document.getElementById('gap-chips').innerHTML = gaps.length
+    ? gaps.slice(0, 60).map(term => '<span class="chip">' + esc(term) + '</span>').join('') + (gaps.length > 60 ? '<span class="muted-note"> y ' + (gaps.length - 60) + ' más…</span>' : '')
+    : '<span class="muted-note">Sin brechas: todas las palabras clave tienen evidencia. 🎉</span>';
+
+  // Emergentes
+  const emj = ((window.GAPS || {}).emergentes) || [];
+  document.getElementById('emergent-chips').innerHTML = emj.length
+    ? emj.map(term => '<span class="chip emj">' + esc(term) + '</span>').join('')
+    : '<span class="muted-note">Sin conceptos emergentes pendientes.</span>';
+
+  // Planes
   const pb = document.querySelector('#plans-table tbody');
   pb.innerHTML = '';
   (window.PLANS || []).forEach(plan => {
+    const st = plan.status || 'open';
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + plan.title + '</td><td>' + (plan.kpi_id ? plan.kpi_id.slice(0, 8) : '—') + '</td><td>' + (plan.owner || '—') + '</td><td><select onchange="advancePlan(\'' + plan.id + '\', this.value)">' +
-      ['open', 'in_progress', 'done', 'cancelled'].map(s => '<option ' + (s === plan.status ? 'selected' : '') + '>' + s + '</option>').join('') + '</select></td>';
+    tr.innerHTML = '<td>' + esc(plan.title) + '</td>'
+      + '<td>' + (plan.kpi_id ? esc(String(plan.kpi_id).slice(0, 8)) : '—') + '</td>'
+      + '<td>' + esc(plan.owner || '—') + '</td>'
+      + '<td><select onchange="advancePlan(\'' + plan.id + '\', this.value)">'
+      + ['open', 'in_progress', 'done', 'cancelled'].map(s => '<option ' + (s === st ? 'selected' : '') + '>' + s + '</option>').join('')
+      + '</select></td>';
     pb.appendChild(tr);
   });
+  if (!(window.PLANS || []).length) pb.innerHTML = '<tr><td colspan="4" class="muted-note">Sin planes registrados.</td></tr>';
+}
+
+function render() {
+  renderSummary();
+  renderPerspectives();
+  renderDetails();
+}
+
+async function createPlan() {
+  const title = document.getElementById('plan-title').value.trim();
+  if (!title) { alert('Escribe qué se va a hacer.'); return; }
+  const body = { title, owner: document.getElementById('plan-owner').value || null, kpi_code: document.getElementById('plan-kpi').value || null };
+  await fetch(API + '/api/v1/bsc/action-plans', { method: 'POST', headers: hdrs(), body: JSON.stringify(body) });
+  document.getElementById('plan-title').value = '';
+  loadPlans().then(renderDetails);
+}
+async function advancePlan(id, status) {
+  await fetch(API + '/api/v1/bsc/action-plans/' + id, { method: 'PATCH', headers: hdrs(), body: JSON.stringify({ status }) });
+  loadPlans().then(renderDetails);
 }
 
 if (localStorage.getItem('token')) {
