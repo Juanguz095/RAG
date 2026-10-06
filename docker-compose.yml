@@ -53,6 +53,7 @@ services:
       - MINIO_SECRET_KEY=${MINIO_PASSWORD:-minioadmin}
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - AUTH_REQUIRED=${AUTH_REQUIRED:-false}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - EMBED_MODEL_NAME=${EMBED_MODEL_NAME:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
       - OCR_LANG=${OCR_LANG:-spa}

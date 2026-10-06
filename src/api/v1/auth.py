@@ -143,3 +143,32 @@ async def register(
 
     token = create_token(str(user.id), user.role, user.username)
     return LoginResponse(access_token=token, role=user.role, username=user.username)
+
+
+async def bootstrap_admin(db: AsyncSession) -> bool:
+    """Crea el usuario 'admin' si AUTH_REQUIRED y la tabla de usuarios está vacía.
+
+    RAG-037 / bootstrap de instalación: garantiza que exista un login inicial.
+    La contraseña viene de ADMIN_PASSWORD (nunca hardcodeada). Devuelve True si
+    lo creó.
+    """
+    from src.config import get_settings
+
+    settings = get_settings()
+    if not settings.AUTH_REQUIRED or not settings.ADMIN_PASSWORD:
+        return False
+
+    total = (await db.execute(select(func.count()).select_from(User))).scalar_one_or_none() or 0
+    if total > 0:
+        return False
+
+    db.add(
+        User(
+            username="admin",
+            email="admin@rag.local",
+            hashed_password=hash_password(settings.ADMIN_PASSWORD),
+            role="admin",
+        )
+    )
+    await db.commit()
+    return True

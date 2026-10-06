@@ -51,6 +51,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"BSC KPI seed failed: {e}")
 
+    # Bootstrap del admin inicial (RAG-037): si AUTH_REQUIRED y la tabla de
+    # usuarios está vacía, crear 'admin' con ADMIN_PASSWORD. Garantiza el login.
+    try:
+        from src.api.v1.auth import bootstrap_admin
+        from src.database import async_session
+
+        async with async_session() as db:
+            created = await bootstrap_admin(db)
+        if created:
+            logger.info("Usuario admin inicial creado (bootstrap RAG-037)")
+    except Exception as e:
+        logger.warning(f"Admin bootstrap failed: {e}")
+
     try:
         from src.services.embeddings import preload
         preload()

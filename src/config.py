@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 h (PLAN-004 M6)
 
     AUTH_REQUIRED: bool = os.getenv("AUTH_REQUIRED", "true").lower() == "true"
+    # Contraseña del admin inicial (bootstrap RAG-037). Si está definida y la
+    # tabla de usuarios está vacía, el arranque crea el usuario 'admin'.
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
 
     # Chat con memoria (RAG-028, PLAN-007 F5)
     CHAT_MEMORY_N: int = int(os.getenv("CHAT_MEMORY_N", "4"))
