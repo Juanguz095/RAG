@@ -1,358 +1,223 @@
-# RAG Médico Local
+# RAG Intelligence BSC — Sistema RAG médico local
 
-Sistema local para cargar un único PDF médico, visualizarlo, extraer texto con OCR y consultar su contenido mediante RAG.
+Sistema **100% local** (sin nube ni APIs pagadas) para documentos médicos en PDF:
+subes un PDF —incluso escaneado o manuscrito, gracias al OCR—, lo visualizas y
+haces preguntas en lenguaje natural. El sistema busca la evidencia en el documento
+y responde **citando** documento, página y fragmento. Incluye un módulo **BSC**
+(Balanced Scorecard) con KPIs, semáforos y reportes que mide la calidad del sistema.
 
 ## Qué hace
 
-- Carga de un solo PDF a la vez.
-- Validación de tipo, tamaño, páginas y duplicados.
-- Visor integrado del PDF con desplazamiento por páginas.
-- Extracción de texto de PDFs digitales y OCR para escaneados.
-- Procesamiento asíncrono con Celery y Redis.
-- Fragmentación semántica y embeddings BGE-M3.
-- Búsqueda vectorial, por palabras clave e híbrida.
-- Consultas RAG con citas.
-- Panel automático de datos importantes detectados por OCR.
-- Eliminación y reprocesamiento del documento.
-- Almacenamiento de originales en MinIO.
+- Carga de un PDF con validación (tipo, tamaño, páginas, duplicados).
+- Visor integrado (PDF.js) con **resaltado** de coincidencias sobre el texto.
+- Extracción de texto (PyMuPDF) y **OCR en cascada** para escaneados/manuscritos.
+- Chunking semántico + embeddings (MiniLM multilingüe, 384-d) + pgvector.
+- Búsqueda híbrida (vectorial + léxica) con fusión RRF y re-ranking (cross-encoder).
+- Consultas RAG con citas y **abstención** si no hay evidencia (no inventa).
+- Chat con memoria, corrección de palabras OCR y feedback (👍/👎).
+- Panel automático de datos del paciente detectados por OCR.
+- Módulo **BSC**: KPIs, tendencias, alertas, planes de acción y reportes.
 
-El OCR puede fallar con escritura manuscrita, sellos, fotografías borrosas o campos de baja calidad. Los datos médicos deben confirmarse en el documento original.
+> El OCR puede fallar con manuscritos difíciles, sellos o imágenes borrosas.
+> Los datos médicos deben confirmarse siempre en el documento original.
 
-## Arquitectura
+## Stack
 
-~~~mermaid
-flowchart LR
-    U[Usuario] --> UI[Interfaz web]
-    UI --> API[FastAPI]
-    API --> PG[(PostgreSQL + pgvector)]
-    API --> R[(Redis)]
-    API --> M[(MinIO)]
-    R --> W[Celery worker]
-    W --> OCR[PyMuPDF + Tesseract]
-    W --> E[BGE-M3]
-    E --> PG
-    API --> S[Búsqueda híbrida]
-    S --> PG
-    S --> L[LLM local]
-~~~
+| Capa | Tecnología |
+|---|---|
+| Backend | Python 3.11, FastAPI, SQLAlchemy 2 (async) + asyncpg |
+| Base de datos | PostgreSQL 16 + **pgvector** (HNSW) + **pg_trgm** |
+| Cola | Celery + Redis |
+| Embeddings | MiniLM multilingüe **384-d** (sentence-transformers) |
+| Re-ranking | `BAAI/bge-reranker-base` (cross-encoder) |
+| LLM | **Qwen2.5-1.5B-Instruct GGUF** (llama-cpp-python) |
+| OCR | PyMuPDF → Tesseract → RapidOCR (PP-OCRv5, ONNX) en cascada |
+| Frontend | SPA `frontend/index.html` + `frontend/bsc.html` (JS vanilla, sin build) |
+| Deploy | Docker Compose |
 
-## Servicios
+## Servicios (`docker-compose.yml`)
 
 | Servicio | Función | Puerto |
 |---|---|---:|
-| postgres | Base de datos y vectores | 5432 |
-| redis | Cola y resultados de Celery | 6379 |
-| minio | Archivos PDF originales | 9000, 9001 |
-| api | FastAPI e interfaz web | 8000 |
-| worker-ingestion | OCR, chunks, embeddings y entidades | interno |
-| worker-embeddings | Tareas de embeddings | interno |
-| prometheus | Métricas | 9090 |
-| grafana | Panel de métricas | 3000 |
-
-## Estructura
-
-~~~text
-RAG/
-├── frontend/index.html       # Interfaz web
-├── src/
-│   ├── main.py               # FastAPI y ruta principal
-│   ├── config.py             # Configuración
-│   ├── api/v1/               # Endpoints
-│   ├── services/             # OCR, ingestión, chunks, embeddings y RAG
-│   ├── workers/              # Tareas Celery
-│   ├── models/               # Modelos SQLAlchemy
-│   └── schemas/              # Esquemas Pydantic
-├── alembic/                  # Migraciones
-├── scripts/                  # Utilidades
-├── models/                   # Modelos locales
-├── tests/                    # Pruebas
-├── docker-compose.yml
-├── docker-compose.test.yml
-├── Dockerfile
-├── .env.example
-└── pyproject.toml
-~~~
+| `api` | FastAPI + interfaz web + LLM | 8000 |
+| `worker` | Ingesta: OCR, chunks, embeddings | interno |
+| `worker-extract` | Extracción de datos del paciente | interno |
+| `postgres` | Base de datos y vectores | 5555 → 5432 |
+| `redis` | Cola de Celery | 6379 |
+| `minio` | Almacenamiento de originales | 9000 / 9001 |
 
 ## Requisitos
 
-- Windows 10/11.
-- Docker Desktop con motor Linux iniciado.
-- Docker Compose v2.
-- WSL2.
-- Al menos 8 GB de RAM.
-- Python 3.11 para pruebas o desarrollo fuera de Docker.
-- Modelos locales en models/ cuando se use el LLM.
+- **Docker Desktop** con motor Linux iniciado + **Docker Compose v2**.
+- **WSL2** (en Windows).
+- **≥ 8 GB de RAM** (Docker Desktop con ~7 GB asignados).
+- **Internet** la primera vez (descarga de modelos).
+- Python 3.11 solo si vas a correr los tests fuera de Docker.
 
 Comprobar:
 
 ~~~powershell
 docker info
 docker compose version
-wsl --status
 ~~~
 
-## Configuración
+## Instalación paso a paso
+
+**1) Clonar**
 
 ~~~powershell
-Copy-Item .env.example .env
-notepad .env
+git clone https://github.com/Juanguz095/RAG.git
+cd RAG
 ~~~
 
-Configurar claves largas y aleatorias:
-
-~~~dotenv
-POSTGRES_PASSWORD=una-clave-larga-y-aleatoria
-MINIO_PASSWORD=otra-clave-larga-y-aleatoria
-SECRET_KEY=una-clave-de-al-menos-32-caracteres
-GRAFANA_ADMIN_PASSWORD=otra-clave-larga-y-aleatoria
-~~~
-
-Para desarrollo local:
-
-~~~dotenv
-AUTH_REQUIRED=false
-DEV_AUTH_BYPASS=true
-~~~
-
-No usar esa configuración en producción.
-
-## Descargar los modelos
-
-El **código fuente no incluye los modelos** (son grandes; GitHub no admite archivos
-de ese tamaño). Se obtienen una sola vez:
+**2) Crear el `.env` y cambiar las claves**
 
 ~~~powershell
-# LLM local (Qwen2.5-1.5B-Instruct, ~1 GB) -> models/
+Copy-Item .env.example .env        # Linux/Mac: cp .env.example .env
+~~~
+
+Editar `.env`: cambia `SECRET_KEY` y **`ADMIN_PASSWORD`** (esta última será la
+contraseña del usuario admin).
+
+**3) Descargar el modelo del LLM (~1 GB)**
+
+~~~powershell
 pip install huggingface-hub
 python scripts/download_models.py
 ~~~
 
-- Los **embeddings** (MiniLM) y el **reranker** (`bge-reranker-base`) se descargan
-  solos la primera vez que arranca la API (requiere internet una vez; quedan en
-  `hf_cache/`).
-- Los modelos de **OCR** (RapidOCR PP-OCRv5) van dentro de la imagen Docker.
+> Los **embeddings** (MiniLM) y el **re-ranker** (`bge-reranker-base`) se descargan
+> solos la primera vez que arranca la API. Los modelos de **OCR** van dentro de la
+> imagen Docker.
 
-> Sin el GGUF en `models/`, la interfaz arranca pero el asistente no genera respuestas.
-
-## Arranque
+**4) Levantar todo** (la primera vez compila; tarda unos minutos)
 
 ~~~powershell
 docker compose up -d --build
 ~~~
 
-URLs:
-
-- Interfaz: http://localhost:8000/
-- Tablero BSC (admin): http://localhost:8000/bsc.html
-- Swagger: http://localhost:8000/docs
-- MinIO: http://localhost:9001/
-
-Login por defecto: **`admin` / `admin123`**.
-
-## Uso de la interfaz
-
-1. Abrir http://localhost:8000/.
-2. Comprobar DB, Redis y MinIO.
-3. Seleccionar un PDF y pulsar Subir documento.
-4. Esperar al estado completed.
-5. Hacer clic en el nombre para abrir el visor.
-6. Revisar Lo importante del PDF.
-7. Escribir una pregunta y pulsar Consultar.
-8. Eliminar el documento antes de subir otro.
-
-Solo se permite un PDF. El visor muestra sus páginas con desplazamiento interno.
-
-## Estados
-
-| Estado | Significado |
-|---|---|
-| processing | Documento recibido. |
-| ocr | Extracción de texto u OCR. |
-| chunking | División en fragmentos. |
-| embedding | Generación de vectores. |
-| completed | Disponible para consultas. |
-| failed | Procesamiento con error. |
-
-## Flujo de ingesta
-
-1. Validación del PDF y cálculo de SHA-256.
-2. Rechazo de duplicados.
-3. Guardado del original en MinIO.
-4. Extracción con PyMuPDF.
-5. OCR de páginas escaneadas con Tesseract en español e inglés.
-6. Anonimización.
-7. Chunking semántico.
-8. Embeddings BGE-M3.
-9. Persistencia de chunks, vectores y entidades.
-10. Estado completed.
-
-El worker de ingestión utiliza una sola tarea simultánea para evitar que dos reprocesamientos compitan por memoria.
-
-## API
-
-### Salud
-
-~~~http
-GET /api/v1/health
-~~~
+**5) Comprobar**
 
 ~~~powershell
+docker compose ps
 Invoke-RestMethod http://localhost:8000/api/v1/health
 ~~~
 
-Debe responder con status ok y dependencias db, redis y minio verdaderas.
+Debe responder `{"status":"healthy","checks":{"api":true,"database":true,"redis":true}}`.
+Si la API aún está cargando modelos, espera ~15 s y reintenta.
 
-### Documentos
+**6) Entrar** — abrir **http://localhost:8000** y hacer login:
 
-~~~http
-POST   /api/v1/documents
-GET    /api/v1/documents?size=10
-GET    /api/v1/documents/{id}
-GET    /api/v1/documents/{id}/file
-GET    /api/v1/documents/{id}/pages/{page}
-POST   /api/v1/documents/{id}/reprocess
-DELETE /api/v1/documents/{id}
-~~~
+- Usuario: **`admin`**
+- Contraseña: la **`ADMIN_PASSWORD`** de tu `.env`.
 
-La subida usa multipart/form-data con el campo file y devuelve 202 Accepted.
+El primer arranque crea ese admin si la tabla de usuarios está vacía. También
+puedes crearlo a mano:
 
 ~~~powershell
-$id="ID_DEL_DOCUMENTO"
-Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/v1/documents/$id/reprocess"
+docker compose run --rm api python scripts/seed_admin.py
 ~~~
 
-No reprocesar mientras el documento esté processing, ocr, chunking o embedding.
+## Uso de la interfaz
 
-### Consulta RAG
+1. Abrir http://localhost:8000 y hacer login.
+2. Comprobar el estado (backend / base de datos / Redis).
+3. Seleccionar un PDF y pulsar **Subir documento**.
+4. Esperar a que el estado sea **completed**.
+5. Clic en el nombre para abrir el visor; usar el buscador para saltar y resaltar.
+6. Revisar **Lo importante del PDF** (datos del paciente).
+7. Escribir una pregunta en el chat y pulsar **Consultar**.
+8. Eliminar el documento antes de subir otro (se permite uno a la vez).
 
-~~~http
-POST /api/v1/query
-~~~
+Tablero BSC (solo admin): http://localhost:8000/bsc.html
 
-~~~json
-{
-  "query": "¿Qué medicamentos aparecen en el documento?",
-  "top_k": 5,
-  "stream": false
-}
-~~~
+## API (resumen)
 
-Con stream false devuelve answer, citations, chunks_used y latency_ms. Si no hay evidencia suficiente, no se inventa información.
-
-### Búsqueda y entidades
-
-~~~http
-POST /api/v1/query/search
-POST /api/v1/search/vector
-POST /api/v1/search/keyword
-POST /api/v1/search/hybrid
-GET  /api/v1/entities
-GET  /api/v1/entities/stats
-~~~
+- `GET  /api/v1/health`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/documents` (multipart, campo `file`, responde 202)
+- `GET  /api/v1/documents`
+- `GET  /api/v1/documents/{id}/file`
+- `POST /api/v1/query` (RAG con citas; se abstiene sin evidencia)
+- `POST /api/v1/query/search`
+- Swagger: http://localhost:8000/docs
 
 ## Modelos
 
-BGE-M3 se carga durante el primer procesamiento y puede tardar. Produce embeddings de 1024 dimensiones.
+- **LLM**: `models/qwen2.5-1.5b-instruct-q4_k_m.gguf` — se descarga con el script; **no** se versiona.
+- **Embeddings / re-ranker**: caché de HuggingFace en `hf_cache/` — se descarga sola.
+- **OCR**: RapidOCR PP-OCRv5, dentro de la imagen Docker.
 
-Configurar el LLM local:
-
-~~~dotenv
-MEDALPACA_MODEL_PATH=/models/medalpaca-7b-q4_k_m.gguf
-~~~
-
-Los modelos grandes no deben incluirse en Git. Marker, Surya, PaddleOCR y spaCy son opcionales; la ruta principal usa PyMuPDF y Tesseract.
+Los modelos grandes **no** van en Git (GitHub rechaza archivos > 100 MB).
 
 ## Pruebas
 
 ~~~powershell
-python -m pytest -m "not integration" -q
+python -m pytest -q
 python -m compileall -q src
-python -m ruff check src tests
-python -m mypy src
 ~~~
 
-Pruebas Docker:
-
-~~~powershell
-docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test
-~~~
+La suite corre **sin infraestructura externa** (sin Postgres, Redis ni modelos).
 
 ## Solución de problemas
 
+### El build tarda muchísimo o falla
+El build descarga torch y compila `llama-cpp-python`. Asegúrate de tener el
+`.dockerignore` (incluido) para que el contexto no arrastre `models/`, `hf_cache/`
+ni `uploads/`.
+
+### No puedo entrar (login)
+El admin se crea con `ADMIN_PASSWORD` del `.env`. Si la cambiaste, vuelve a crearlo:
+
+~~~powershell
+docker compose run --rm api python scripts/seed_admin.py
+~~~
+
 ### Docker no responde
+Abrir Docker Desktop y esperar a que el motor Linux esté listo; luego `docker info`.
 
-Si aparece dockerDesktopLinuxEngine, abrir Docker Desktop y esperar el motor Linux.
-
+### El documento queda en "processing" / "ocr"
 ~~~powershell
-docker info
-docker compose ps
+docker compose logs --tail=200 worker
 ~~~
 
-### Failed to fetch
-
-~~~powershell
-Invoke-RestMethod http://localhost:8000/api/v1/health
-docker compose ps
-~~~
-
-Si responde correctamente, recargar con Ctrl+F5.
-
-### El documento queda en ocr
-
-~~~powershell
-docker compose logs --tail=200 worker-ingestion
-~~~
-
-No pulsar varias veces Reprocesar OCR. Después del OCR puede tardar la fase embedding.
-
-### El PDF no aparece en el visor
-
-~~~powershell
-$id="ID_DEL_DOCUMENTO"
-curl.exe -I "http://localhost:8000/api/v1/documents/$id/pages/1"
-~~~
-
-Debe responder 200 OK y content-type image/png. Recargar con Ctrl+F5.
-
-### El resumen muestra texto extraño
-
-Los formularios escaneados pueden producir ruido OCR. El panel muestra medicamentos, procedimientos y datos institucionales cuando son reconocibles, pero no inventa nombres, DNI, fechas ni diagnósticos. Verificar esos datos en el visor.
-
-### Los cambios no aparecen
-
-~~~powershell
-docker compose restart api worker-ingestion
-~~~
-
-Si se cambió el comando de un servicio:
-
-~~~powershell
-docker compose up -d --force-recreate api worker-ingestion
-~~~
+### Las consultas tardan mucho la primera vez
+El primer `/query` carga los modelos (90-150 s en frío). Haz una consulta de
+calentamiento antes de una demo; después, ~1 min por consulta.
 
 ## Mantenimiento
 
 ~~~powershell
 docker compose logs -f api
-docker compose logs -f worker-ingestion
-docker compose logs -f worker-embeddings
 docker compose ps
-docker compose down
+docker compose down          # parar (los datos viven en volúmenes)
+docker compose down -v       # borrar también volúmenes (BD, Redis, MinIO)
 ~~~
-
-Para borrar también todos los datos de los volúmenes:
-
-~~~powershell
-docker compose down -v
-~~~
-
-Este último comando elimina la base de datos, Redis, MinIO y Grafana almacenados localmente.
 
 ## Seguridad y limitaciones
 
-- No guardar contraseñas reales en Git.
+- No subir `.env` ni contraseñas reales a Git.
 - No exponer PostgreSQL, Redis o MinIO directamente a Internet.
-- Usar autenticación en producción.
-- La anonimización ocurre antes del chunking y los embeddings.
-- El OCR no garantiza la lectura de manuscritos o imágenes borrosas.
-- El sistema es apoyo documental y no sustituye a un profesional de salud.
+- El sistema es apoyo documental y **no sustituye** a un profesional de salud.
+
+## Estructura
+
+~~~text
+src/            backend (main, config, api/v1, services, workers, models, schemas)
+frontend/       SPA (index.html, bsc.html)
+alembic/        migraciones
+scripts/        download_models, seed_admin, init_db, reindex, bench_*
+tests/          pytest (host, sin infra)
+models/         GGUF del LLM (no versionado)
+hf_cache/       caché HuggingFace (no versionado)
+uploads/        PDFs subidos (no versionado)
+docker-compose.yml
+Dockerfile
+.dockerignore
+.env.example
+pyproject.toml
+~~~
+
+---
+
+Proyecto académico — RAG Intelligence BSC · Repositorio: https://github.com/Juanguz095/RAG
