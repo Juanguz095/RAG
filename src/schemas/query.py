@@ -24,6 +24,8 @@ class ChunkResult(BaseModel):
     chunk_index: int = 0
     relevance: int = 0
     matched_terms: list[str] = []
+    # Score del cross-encoder (sigmoid 0-1); base del umbral de abstención (RAG-025).
+    rerank_score: Optional[float] = None
     # PLAN-006 Fase 4 (RAG-019/RAG-026): sección y fragmento contextual
     section: str | None = None
     fragment: str | None = None

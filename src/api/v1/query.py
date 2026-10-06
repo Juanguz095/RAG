@@ -65,6 +65,7 @@ def _results_to_sources(results) -> list[ChunkResult]:
             chunk_index=r.chunk_index,
             relevance=r.relevance,
             matched_terms=r.matched_terms,
+            rerank_score=getattr(r, "rerank_score", None),
             section=(r.chunk_metadata or {}).get("section") if r.chunk_metadata else None,
             fragment=(r.chunk_metadata or {}).get("fragment") if r.chunk_metadata else None,
         )
