@@ -1,0 +1,38 @@
+# Entorno / secretos (nunca dentro de la imagen)
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+htmlcov/
+
+# Modelos y cachés grandes: se montan como volumen, NO van en la imagen
+models/
+hf_cache/
+uploads/
+
+# Documentos del curso y notas (no hacen falta para ejecutar)
+documentos/
+datossinteticos/
+docs/
+planes/
+IDEA.md
+MEMORIA_TECNICA.md
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Otros
+*.gguf
+.DS_Store

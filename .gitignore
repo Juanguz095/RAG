@@ -8,8 +8,10 @@ coverage.xml
 htmlcov/
 models/*
 !models/.gitkeep
-hf_cache/
-uploads/
+hf_cache/*
+!hf_cache/.gitkeep
+uploads/*
+!uploads/.gitkeep
 documentos/
 IDEA.md
 docs/
