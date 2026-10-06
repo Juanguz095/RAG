@@ -189,26 +189,36 @@
     .chip { padding:5px 12px; background:var(--bg-page); border:1px solid var(--border); border-radius:20px; font-size:12px; font-weight:500; color:var(--text-secondary); cursor:pointer; transition:var(--transition); }
     .chip:hover { border-color:var(--accent); color:var(--accent); }
     .chip.active { background:var(--accent); color:white; border-color:var(--accent); }
-    .search-filters { display:flex; gap:12px; margin-bottom:12px; }
-    .filter-select { padding:8px 12px; background:var(--bg-page); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13px; font-family:inherit; color:var(--text-secondary); cursor:pointer; min-width:120px; }
-    .filter-select:focus { outline:none; border-color:var(--accent); }
+    .search-filters { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+    .search-filters::before { content:'Filtros'; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:var(--text-muted); margin-right:2px; }
+    .filter-select { padding:6px 12px; background:var(--bg-page); border:1px solid var(--border); border-radius:20px; font-size:12.5px; font-family:inherit; color:var(--text-secondary); cursor:pointer; }
+    .filter-select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
     .search-stats { font-size:12px; color:var(--text-muted); margin-bottom:12px; }
+    .results-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:2px 0 12px; }
+    .results-head .rh-count { font-size:13px; font-weight:700; color:var(--text-primary); }
+    .results-head .rh-sub { font-size:11px; font-weight:500; color:var(--text-muted); }
+    .results-head .rh-badge { font-size:11px; font-weight:700; padding:2px 9px; border-radius:10px; background:rgba(240,136,62,0.16); color:#b45309; }
     .search-hint { font-size:12px; color:var(--text-muted); background:var(--bg-page); border:1px dashed var(--border); border-radius:var(--radius-sm); padding:8px 10px; margin-bottom:10px; }
     .search-synonyms { font-size:11.5px; color:var(--text-muted); margin-bottom:8px; line-height:1.4; }
     .search-synonyms b { color:var(--accent); font-weight:600; }
     .suggestions-label { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px; }
     .occ-header { font-size:13px; font-weight:600; color:var(--text-primary); margin-bottom:10px; line-height:1.4; }
     .occ-header strong { color:var(--accent); }
-    .occ-item { background:var(--bg-page); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:8px; cursor:pointer; transition:var(--transition); }
-    .occ-item:hover { border-color:var(--accent); transform:translateX(2px); box-shadow:var(--shadow-sm); }
-    .occ-item.active { border-color:var(--accent); border-left:3px solid var(--accent); background:var(--accent-light); }
-    .occ-meta { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.3px; margin-bottom:6px; }
-    .occ-context { font-size:13px; color:var(--text-secondary); line-height:1.55; margin-bottom:8px; }
-    .occ-context mark { background:rgba(255,140,0,0.28); color:var(--text-primary); font-weight:700; padding:1px 3px; border-radius:2px; }
-    .result-actions { display:flex; gap:12px; }
-    .result-action { font-size:12px; font-weight:500; color:var(--accent); cursor:pointer; display:flex; align-items:center; gap:4px; transition:var(--transition); }
-    .result-action:hover { color:var(--accent-hover); }
-    .result-action svg { width:14px; height:14px; }
+    .occ-item { background:var(--bg-page); border:1px solid var(--border); border-left:4px solid var(--border); border-radius:var(--radius-sm); padding:11px 14px; margin-bottom:8px; cursor:pointer; transition:var(--transition); }
+    .occ-item.occ-exact { border-left-color:#e6b800; }
+    .occ-item.occ-approx { border-left-color:#f0883e; }
+    .occ-item:hover { border-color:var(--accent); box-shadow:var(--shadow-sm); }
+    .occ-item.active { border-color:var(--accent); border-left-color:var(--accent); background:var(--accent-light); }
+    .occ-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:7px; }
+    .occ-badge { font-size:10.5px; font-weight:700; color:#fff; background:var(--accent); padding:2px 8px; border-radius:10px; letter-spacing:0.2px; }
+    .occ-term { font-size:11.5px; font-weight:700; color:var(--text-primary); background:var(--accent-soft); padding:2px 8px; border-radius:6px; }
+    .occ-count { font-size:11px; font-weight:600; color:var(--text-muted); margin-left:auto; }
+    .occ-context { font-size:13px; color:var(--text-secondary); line-height:1.5; margin-bottom:8px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .occ-context mark { background:rgba(255,196,0,0.45); color:var(--text-primary); font-weight:700; padding:1px 3px; border-radius:3px; }
+    .result-actions { display:flex; gap:12px; justify-content:flex-end; }
+    .result-action { font-size:12px; font-weight:600; color:#fff; background:var(--accent); cursor:pointer; display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:var(--radius-sm); transition:var(--transition); }
+    .result-action:hover { background:var(--accent-hover); }
+    .result-action svg { width:13px; height:13px; }
     .empty-search { text-align:center; padding:16px 12px; }
     .empty-search .empty-examples { font-size:12px; color:var(--text-muted); margin-top:6px; }
     .empty-search .empty-examples span { cursor:pointer; color:var(--accent); font-weight:600; }
@@ -915,6 +925,10 @@
     let lastFocusVariants = null;
     let hlCanvasCache = [];
     let pageWrapperCache = [];
+    // Render de páginas a demanda: evita que el resaltado/salto falle cuando la
+    // página objetivo aún no se ha renderizado (render secuencial asíncrono).
+    let pdfPageReady = {};     // pageNum -> true (canvas + escala listos)
+    let pdfPagePending = {};   // pageNum -> Promise (render en curso)
 
     // ── AUTH ──
     function showApp() {
@@ -1126,6 +1140,9 @@
     async function showUsers() {
       currentView = 'users';
       document.getElementById('dashboard-view').style.display = 'none';
+      document.getElementById('config-view').style.display = 'none';
+      document.getElementById('patient-card').style.display = 'none';
+      document.getElementById('upload-card').style.display = 'none';
       document.getElementById('search-card').style.display = 'none';
       document.getElementById('right-column').style.display = 'none';
       document.getElementById('users-view').style.display = '';
@@ -1782,6 +1799,8 @@
       // solo se cargaba si doc.status==='completed', y con un estado de lista
       // desactualizado el panel quedaba en "cargando".
       loadDocData(docId);
+      // La conversación del chat pertenecía al documento anterior → se cierra.
+      resetChatForDoc();
     }
 
     function showDashboard() {
@@ -1824,6 +1843,7 @@
         const progress = document.getElementById('upload-progress');
         if (progress) progress.classList.remove('show');
       }
+      resetChatForDoc();
       loadDashboard();
     }
 
@@ -1921,11 +1941,105 @@
       }
     }
 
+    async function buildPageWrapper(pageNum, page, containerWidth) {
+      const viewer = document.getElementById('pdf-viewer');
+      const unscaledViewport = page.getViewport({ scale: 1 });
+      const scale = containerWidth / unscaledViewport.width;
+      const viewport = page.getViewport({ scale });
+
+      pdfPageScales[pageNum] = {
+        scale: scale,
+        baseWidth: viewport.width,
+        baseHeight: viewport.height,
+        pdfWidth: unscaledViewport.width,
+        pdfHeight: unscaledViewport.height,
+        canvasWidth: viewport.width,
+        canvasHeight: viewport.height,
+      };
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'pdf-page-wrapper';
+      wrapper.dataset.page = pageNum;
+
+      const canvas = document.createElement('canvas');
+      canvas.dataset.page = pageNum;
+      canvas.style.cursor = 'pointer';
+      canvas.onclick = (e) => {
+        pdfCurrentPage = pageNum;
+        updatePdfPageIndicator();
+        const hit = hitTestWord(pageNum, e, canvas);
+        if (hit >= 0) openWordEdit(pageNum, hit, e.clientX, e.clientY);
+      };
+      const ctx = canvas.getContext('2d');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      wrapper.appendChild(canvas);
+
+      const hlCanvas = document.createElement('canvas');
+      hlCanvas.className = 'pdf-hl-overlay';
+      hlCanvas.id = 'hl-canvas-' + pageNum;
+      hlCanvas.width = viewport.width;
+      hlCanvas.height = viewport.height;
+      hlCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
+      wrapper.appendChild(hlCanvas);
+      hlCanvasCache.push(hlCanvas);
+
+      const textLayerDiv = document.createElement('div');
+      textLayerDiv.className = 'pdf-text-layer';
+      textLayerDiv.id = 'text-layer-' + pageNum;
+      wrapper.appendChild(textLayerDiv);
+
+      const marker = document.createElement('div');
+      marker.className = 'pdf-page-marker';
+      marker.id = 'page-marker-' + pageNum;
+      wrapper.appendChild(marker);
+
+      // Insertar SIEMPRE en orden de página: vale tanto para el render
+      // secuencial como para el render a demanda de una página suelta.
+      let ref = null;
+      for (const w of viewer.querySelectorAll('.pdf-page-wrapper')) {
+        if (parseInt(w.dataset.page, 10) > pageNum) { ref = w; break; }
+      }
+      if (ref) viewer.insertBefore(wrapper, ref); else viewer.appendChild(wrapper);
+
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      try {
+        const textContent = await page.getTextContent();
+        renderTextLayer(textContent, textLayerDiv, viewport);
+      } catch(e) {}
+
+      pdfPageReady[pageNum] = true;
+    }
+
+    // Renderiza una página concreta (una sola vez). Devuelve una promesa.
+    function renderPageNum(pageNum, pageObj) {
+      if (pdfPageReady[pageNum]) return Promise.resolve();
+      if (pdfPagePending[pageNum]) return pdfPagePending[pageNum];
+      pdfPagePending[pageNum] = (async () => {
+        const viewer = document.getElementById('pdf-viewer');
+        const containerWidth = viewer.clientWidth - 20;
+        const page = pageObj || (pdfDoc ? await pdfDoc.getPage(pageNum) : null);
+        if (!page || pdfPageReady[pageNum]) return;
+        await buildPageWrapper(pageNum, page, containerWidth);
+      })().finally(() => { delete pdfPagePending[pageNum]; });
+      return pdfPagePending[pageNum];
+    }
+
+    // Garantiza que la página esté renderizada (a demanda) antes de resaltar.
+    async function ensurePageRendered(pageNum) {
+      if (pdfPageReady[pageNum]) return;
+      await renderPageNum(pageNum, null);
+      applyPdfZoom();
+    }
+
     async function renderAllPdfPages() {
       const viewer = document.getElementById('pdf-viewer');
       viewer.innerHTML = '';
       const containerWidth = viewer.clientWidth - 20;
       pdfPageScales = {};
+      pdfPageReady = {};
+      pdfPagePending = {};
       hlCanvasCache = [];
 
       const pagePromises = [];
@@ -1937,67 +2051,7 @@
 
       for (let i = 0; i < loadedPages.length; i++) {
         const pageNum = i + 1;
-        const page = loadedPages[i];
-        const unscaledViewport = page.getViewport({ scale: 1 });
-        const scale = containerWidth / unscaledViewport.width;
-        const viewport = page.getViewport({ scale });
-
-        pdfPageScales[pageNum] = {
-          scale: scale,
-          baseWidth: viewport.width,
-          baseHeight: viewport.height,
-          pdfWidth: unscaledViewport.width,
-          pdfHeight: unscaledViewport.height,
-          canvasWidth: viewport.width,
-          canvasHeight: viewport.height,
-        };
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'pdf-page-wrapper';
-        wrapper.dataset.page = pageNum;
-
-        const canvas = document.createElement('canvas');
-        canvas.dataset.page = pageNum;
-        canvas.style.cursor = 'pointer';
-        canvas.onclick = (e) => {
-          pdfCurrentPage = pageNum;
-          updatePdfPageIndicator();
-          const hit = hitTestWord(pageNum, e, canvas);
-          if (hit >= 0) openWordEdit(pageNum, hit, e.clientX, e.clientY);
-        };
-        const ctx = canvas.getContext('2d');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        wrapper.appendChild(canvas);
-
-        const hlCanvas = document.createElement('canvas');
-        hlCanvas.className = 'pdf-hl-overlay';
-        hlCanvas.id = 'hl-canvas-' + pageNum;
-        hlCanvas.width = viewport.width;
-        hlCanvas.height = viewport.height;
-        hlCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
-        wrapper.appendChild(hlCanvas);
-        hlCanvasCache.push(hlCanvas);
-
-        const textLayerDiv = document.createElement('div');
-        textLayerDiv.className = 'pdf-text-layer';
-        textLayerDiv.id = 'text-layer-' + pageNum;
-        wrapper.appendChild(textLayerDiv);
-
-        const marker = document.createElement('div');
-        marker.className = 'pdf-page-marker';
-        marker.id = 'page-marker-' + pageNum;
-        wrapper.appendChild(marker);
-
-        viewer.appendChild(wrapper);
-
-        await page.render({ canvasContext: ctx, viewport }).promise;
-
-        try {
-          const textContent = await page.getTextContent();
-          renderTextLayer(textContent, textLayerDiv, viewport);
-        } catch(e) {}
-
+        await renderPageNum(pageNum, loadedPages[i]);
         if (pageNum % 4 === 0) {
           await new Promise(r => setTimeout(r, 0));
         }
@@ -2037,7 +2091,8 @@
 
     function applyPdfZoom() {
       const z = pdfZoomLevel;
-      const wrappers = pageWrapperCache.length ? pageWrapperCache : document.querySelectorAll('.pdf-page-wrapper');
+      // Siempre releer del DOM: incluye páginas renderizadas a demanda.
+      const wrappers = document.querySelectorAll('.pdf-page-wrapper');
       pageWrapperCache = Array.from(wrappers);
       for (const wrapper of pageWrapperCache) {
         const page = parseInt(wrapper.dataset.page);
@@ -2086,6 +2141,7 @@
       if (!pdfDoc || pageNum < 1 || pageNum > pdfTotalPages) return;
       pdfCurrentPage = pageNum;
       updatePdfPageIndicator();
+      await ensurePageRendered(pageNum);
       const viewer = document.getElementById('pdf-viewer');
       const canvas = viewer.querySelector('canvas[data-page="' + pageNum + '"]');
       if (canvas) canvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2131,6 +2187,7 @@
       }
       const unique = Object.entries(words).sort((a,b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
       const chipsDiv = document.getElementById('search-chips');
+      chipsDiv.style.display = '';
       if (!unique.length) { chipsDiv.innerHTML = ''; return; }
       chipsDiv.innerHTML = '<div class="suggestions-label">Sugerencias</div>' + unique.map(w =>
         '<span class="chip" onclick="chipClick(this)">' + esc(w) + '</span>'
@@ -2737,10 +2794,14 @@
         return;
       }
 
-      const occHtml = (o, i, total) => {
+      const occHtml = (o, i, total, isApprox) => {
         const ctx = buildOccContext(o.pk, o.boxIndex, variants);
-        return '<div class="occ-item" data-page="' + o.page + '" data-box="' + o.boxIndex + '" onclick="goToOccurrence(' + o.page + ',' + o.boxIndex + ')">' +
-          '<div class="occ-meta">Pagina ' + (o.page + 1) + ' &middot; «' + esc(o.matchedText || focusWord) + '» &middot; ' + (i + 1) + '/' + total + '</div>' +
+        return '<div class="occ-item ' + (isApprox ? 'occ-approx' : 'occ-exact') + '" data-page="' + o.page + '" data-box="' + o.boxIndex + '" onclick="goToOccurrence(' + o.page + ',' + o.boxIndex + ')">' +
+          '<div class="occ-meta">' +
+            '<span class="occ-badge">Pag. ' + (o.page + 1) + '</span>' +
+            '<span class="occ-term">«' + esc(o.matchedText || focusWord) + '»</span>' +
+            '<span class="occ-count">' + (i + 1) + '/' + total + '</span>' +
+          '</div>' +
           '<div class="occ-context">' + ctx + '</div>' +
           '<div class="result-actions">' +
           '<span class="result-action" onclick="event.stopPropagation();goToOccurrence(' + o.page + ',' + o.boxIndex + ')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/></svg>Ver en el PDF</span>' +
@@ -2750,18 +2811,8 @@
 
       const parts = [];
       if (nOcc) {
-        const forms = {};
-        occs.forEach(o => {
-          const f = o.matchedText || '';
-          forms[f] = (forms[f] || 0) + 1;
-        });
-        const formList = Object.entries(forms).sort((a, b) => b[1] - a[1]);
         const showOccs = occs.slice(0, 50);
-        if (formList.length > 1) {
-          parts.push('<div class="search-stats" style="margin-bottom:8px">Formas: ' +
-            formList.map(([f, c]) => '«' + esc(f) + '» ' + c).join(' · ') + '</div>');
-        }
-        parts.push(showOccs.map((o, i) => occHtml(o, i, nOcc)).join(''));
+        parts.push(showOccs.map((o, i) => occHtml(o, i, nOcc, false)).join(''));
         if (nOcc > showOccs.length) {
           parts.push('<div class="search-stats">y ' + (nOcc - showOccs.length) + ' mas...</div>');
         }
@@ -2772,9 +2823,9 @@
         const hint = (nOcc === 0 && best)
           ? ' &mdash; ¿quisiste decir «' + esc(best.matchedText) + '»?'
           : '';
-        parts.push('<div class="search-stats" style="margin:10px 0 8px">Aproximados (posible error de OCR)' + hint + ':</div>');
+        parts.push('<div class="suggestions-label" style="margin:12px 0 8px">Aproximados (posible error de OCR)' + hint + '</div>');
         const showApprox = approxList.slice(0, 50);
-        parts.push(showApprox.map((o, i) => occHtml(o, i, approxList.length)).join(''));
+        parts.push(showApprox.map((o, i) => occHtml(o, i, approxList.length, true)).join(''));
         if (approxList.length > showApprox.length) {
           parts.push('<div class="search-stats">y ' + (approxList.length - showApprox.length) + ' mas...</div>');
         }
@@ -2859,25 +2910,24 @@
       lastOccurrences = occs;
       lastApproxOccurrences = approx;
 
-      const statsBits = [];
-      if (occs.length) {
-        const nForms = variants.tokens.size;
-        statsBits.push(occs.length + ' aparicion' + (occs.length === 1 ? '' : 'es') +
-          (nForms > 1 ? ' (' + nForms + ' variantes)' : ''));
+      const statsEl = document.getElementById('search-stats');
+      if (statsEl) {
+        const pages = new Set(occs.map(o => o.page));
+        approx.forEach(o => pages.add(o.page));
+        const bits = [];
+        if (occs.length || approx.length) {
+          bits.push('<span class="rh-count">' + occs.length + ' coincidencia' + (occs.length === 1 ? '' : 's') + '</span>');
+          bits.push('<span class="rh-sub">' + pages.size + ' pagina' + (pages.size === 1 ? '' : 's') + '</span>');
+          if (approx.length) {
+            bits.push('<span class="rh-badge">' + approx.length + ' aproximada' + (approx.length === 1 ? '' : 's') + '</span>');
+          }
+        }
+        if (pageFilter != null) bits.push('<span class="rh-sub">pagina ' + (pageFilter + 1) + '</span>');
+        if (domainFilter) bits.push('<span class="rh-sub">dominio: ' + esc(domainFilter) + '</span>');
+        if (sectionFilter) bits.push('<span class="rh-sub">seccion: ' + esc(String(sectionFilter).slice(0, 30)) + '</span>');
+        statsEl.className = 'results-head';
+        statsEl.innerHTML = bits.join('');
       }
-      if (approx.length) {
-        statsBits.push(approx.length + ' aproximada' + (approx.length === 1 ? '' : 's'));
-      }
-      if (pageFilter != null) {
-        statsBits.push('pagina ' + (pageFilter + 1));
-      }
-      if (domainFilter) {
-        statsBits.push('dominio: ' + domainFilter);
-      }
-      if (sectionFilter) {
-        statsBits.push('seccion: ' + String(sectionFilter).slice(0, 30));
-      }
-      document.getElementById('search-stats').textContent = statsBits.join(' · ');
 
       renderOccList(occs, lastFocusWord, approx);
 
@@ -2905,7 +2955,7 @@
       chatInput.focus();
     }
 
-    function goToOccurrence(page, boxIndex) {
+    async function goToOccurrence(page, boxIndex) {
       selectedOccurrence = { page: page, boxIndex: boxIndex };
       document.querySelectorAll('.occ-item').forEach(r => r.classList.remove('active'));
       const card = document.querySelector('.occ-item[data-page="' + page + '"][data-box="' + boxIndex + '"]');
@@ -2917,8 +2967,12 @@
       if (pdfZoomLevel < 1.8) {
         pdfZoomLevel = 1.8;
         updatePdfZoomLabel();
-        applyPdfZoom();
       }
+
+      // Fix: renderizar la página objetivo a demanda antes de resaltar/centrar
+      // (antes se saltaba el resaltado en páginas aún no renderizadas).
+      await ensurePageRendered(page + 1);
+      applyPdfZoom();
 
       const variants = lastFocusVariants || expandFocusVariants(lastFocusWord);
       const found = (lastMatchedByPage && Object.keys(lastMatchedByPage).length)
@@ -3306,6 +3360,22 @@
       const input = document.getElementById('chat-input');
       if (input) input.focus();
       showToast('Nueva conversacion', 'info');
+    }
+
+    // Al cambiar de documento (o volver al Dashboard), el chat se CIERRA y se
+    // resetea: la conversación anterior pertenecía al otro documento. No se
+    // borra: queda en el historial ("Recientes…").
+    function resetChatForDoc() {
+      const section = document.getElementById('chat-section');
+      if (section) { section.classList.remove('expanded'); section.classList.add('collapsed'); }
+      window.currentConvId = null;
+      const box = document.getElementById('chat-messages');
+      if (box) {
+        box.innerHTML = '<div class="chat-empty" id="chat-empty"><div class="chat-empty-title">Hola, soy tu asistente</div><div class="chat-empty-sub">Pregúntame sobre el documento abierto o conversa conmigo.</div><div class="chat-quick" id="chat-quick"></div></div>';
+      }
+      renderChatQuick();
+      const sel = document.getElementById('chat-conv-select');
+      if (sel) sel.value = '';
     }
 
     function renderChatQuick() {
